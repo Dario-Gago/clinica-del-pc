@@ -188,6 +188,39 @@ function App() {
   const completedCount = Object.values(completedSteps).filter(Boolean).length
   const progress = (completedCount / steps.length) * 100
 
+  const saveToDatabase = async () => {
+    try {
+      // Usar la URL del servidor actual o localhost para desarrollo
+      const serverUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? 'http://localhost:3001'
+        : `http://${window.location.hostname}:3001`
+      
+      const response = await fetch(`${serverUrl}/api/save`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userInfo,
+          completedSteps,
+          stepNotes,
+          stepImages
+        })
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        alert('¡Datos guardados exitosamente en la base de datos!')
+      } else {
+        alert('Error al guardar: ' + data.error)
+      }
+    } catch (error) {
+      console.error('Error al guardar en base de datos:', error)
+      alert('Error de conexión con el servidor. Asegúrate de que el backend esté corriendo.')
+    }
+  }
+
   const handleUserInfoSubmit = (e) => {
     e.preventDefault()
     setShowForm(false)
@@ -278,6 +311,10 @@ function App() {
           </div>
           <p className="progress-text">{completedCount} de {steps.length} pasos completados ({Math.round(progress)}%)</p>
         </div>
+
+        <button onClick={saveToDatabase} className="save-db-btn">
+          💾 Guardar en Base de Datos
+        </button>
       </header>
 
       <main className="main-content">

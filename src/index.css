@@ -212,6 +212,30 @@ p {
   margin: 0;
 }
 
+.save-db-btn {
+  display: block;
+  margin: 1.5rem auto;
+  padding: 0.75rem 2rem;
+  background-color: var(--color-primary);
+  color: var(--color-bg);
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.save-db-btn:hover {
+  background-color: var(--color-primary-dark);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.save-db-btn:active {
+  transform: translateY(1px);
+}
+
 /* Main Content */
 .main-content {
   max-width: 900px;
