@@ -311,10 +311,6 @@ function App() {
           </div>
           <p className="progress-text">{completedCount} de {steps.length} pasos completados ({Math.round(progress)}%)</p>
         </div>
-
-        <button onClick={saveToDatabase} className="save-db-btn">
-          💾 Guardar en Base de Datos
-        </button>
       </header>
 
       <main className="main-content">
@@ -398,9 +394,14 @@ function App() {
 
       <footer className="footer">
         <p>Lista de verificación para evaluación práctica</p>
-        <button onClick={handleNewPC} className="new-pc-btn">
-          🔄 Nuevo PC
-        </button>
+        <div className="footer-buttons">
+          <button onClick={saveToDatabase} className="save-db-btn">
+            💾 Guardar en Base de Datos
+          </button>
+          <button onClick={handleNewPC} className="new-pc-btn">
+            🔄 Nuevo PC
+          </button>
+        </div>
       </footer>
     </div>
   )
