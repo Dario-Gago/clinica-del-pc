@@ -37,6 +37,9 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+// Servir archivos estáticos desde el directorio de uploads
+app.use('/uploads', express.static(uploadDir));
+
 // PostgreSQL connection
 const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
@@ -274,6 +277,67 @@ app.get('/api/students', async (req, res) => {
     res.json({ success: true, students: result.rows });
   } catch (error) {
     console.error('Error fetching students:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get all data (students with computers, steps and images)
+app.get('/api/admin/all-data', async (req, res) => {
+  try {
+    // Get all students
+    const studentsResult = await pool.query('SELECT * FROM students ORDER BY created_at DESC');
+    
+    // Get all data for each student
+    const studentsWithFullData = await Promise.all(
+      studentsResult.rows.map(async (student) => {
+        // Get computers for this student
+        const computersResult = await pool.query(
+          'SELECT * FROM computers WHERE student_id = $1 ORDER BY created_at DESC',
+          [student.id]
+        );
+        
+        // Get steps for each computer
+        const computersWithSteps = await Promise.all(
+          computersResult.rows.map(async (computer) => {
+            const stepsResult = await pool.query(
+              'SELECT * FROM steps WHERE computer_id = $1 ORDER BY step_id',
+              [computer.id]
+            );
+            
+            // Get images for each step
+            const stepsWithImages = await Promise.all(
+              stepsResult.rows.map(async (step) => {
+                const imagesResult = await pool.query(
+                  'SELECT * FROM images WHERE step_record_id = $1 ORDER BY created_at',
+                  [step.id]
+                );
+                return {
+                  ...step,
+                  images: imagesResult.rows
+                };
+              })
+            );
+
+            return {
+              ...computer,
+              steps: stepsWithImages
+            };
+          })
+        );
+
+        return {
+          ...student,
+          computers: computersWithSteps
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      data: studentsWithFullData
+    });
+  } catch (error) {
+    console.error('Error fetching all data:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
