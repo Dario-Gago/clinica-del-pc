@@ -300,6 +300,10 @@ function App() {
         <h1>🏥 Clínica del PC</h1>
         <p className="subtitle">Guía de mantenimiento de hardware y software</p>
         
+        <div className="reminder-banner">
+          ⚠️ No te olvides de guardar en la base de datos
+        </div>
+        
         <div className="user-info-display">
           <p><strong>Estudiante:</strong> {userInfo.nombre} {userInfo.apellido}</p>
           <p><strong>PC:</strong> {userInfo.nombrePC}</p>
