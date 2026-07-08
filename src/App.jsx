@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import Swal from 'sweetalert2'
 
 const steps = [
   {
@@ -284,13 +285,28 @@ function App() {
       const data = await response.json()
       
       if (data.success) {
-        alert('¡Datos guardados exitosamente en la base de datos!')
+        Swal.fire({
+          icon: 'success',
+          title: '¡Guardado!',
+          text: 'Datos guardados exitosamente en la base de datos',
+          confirmButtonColor: '#22c55e'
+        })
       } else {
-        alert('Error al guardar: ' + data.error)
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Error al guardar: ' + data.error,
+          confirmButtonColor: '#1e40af'
+        })
       }
     } catch (error) {
       console.error('Error al guardar en base de datos:', error)
-      alert('Error de conexión con el servidor. Asegúrate de que el backend esté corriendo.')
+      Swal.fire({
+        icon: 'error',
+        title: 'Error de conexión',
+        text: 'Error de conexión con el servidor. Asegúrate de que el backend esté corriendo.',
+        confirmButtonColor: '#1e40af'
+      })
     }
   }
 
@@ -307,32 +323,50 @@ function App() {
   }
 
   const handleNewPC = () => {
-    if (confirm('¿Estás seguro de que quieres empezar con un nuevo PC? Se mantendrán tus datos personales.')) {
-      // Reiniciar todo excepto nombre y apellido del estudiante
-      setUserInfo(prev => ({
-        nombre: prev.nombre,
-        apellido: prev.apellido,
-        nombrePC: ''
-      }))
-      setCompletedSteps({})
-      setStepNotes({})
-      setStepImages({})
-      setImageFiles({})
-      setShowForm(true)
-      // Actualizar localStorage con los datos del estudiante
-      const currentData = JSON.parse(localStorage.getItem('clinicaDelPC') || '{}')
-      localStorage.setItem('clinicaDelPC', JSON.stringify({
-        ...currentData,
-        userInfo: {
-          nombre: userInfo.nombre,
-          apellido: userInfo.apellido,
+    Swal.fire({
+      title: '¿Nuevo PC?',
+      text: '¿Estás seguro de que quieres empezar con un nuevo PC? Se mantendrán tus datos personales.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#22c55e',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Sí, nuevo PC',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        // Reiniciar todo excepto nombre y apellido del estudiante
+        setUserInfo(prev => ({
+          nombre: prev.nombre,
+          apellido: prev.apellido,
           nombrePC: ''
-        },
-        showForm: true,
-        completedSteps: {},
-        stepNotes: {}
-      }))
-    }
+        }))
+        setCompletedSteps({})
+        setStepNotes({})
+        setStepImages({})
+        setImageFiles({})
+        setShowForm(true)
+        // Actualizar localStorage con los datos del estudiante
+        const currentData = JSON.parse(localStorage.getItem('clinicaDelPC') || '{}')
+        localStorage.setItem('clinicaDelPC', JSON.stringify({
+          ...currentData,
+          userInfo: {
+            nombre: userInfo.nombre,
+            apellido: userInfo.apellido,
+            nombrePC: ''
+          },
+          showForm: true,
+          completedSteps: {},
+          stepNotes: {}
+        }))
+        
+        Swal.fire({
+          icon: 'success',
+          title: 'Reiniciado',
+          text: 'Puedes empezar con un nuevo PC',
+          confirmButtonColor: '#22c55e'
+        })
+      }
+    })
   }
 
   if (showForm) {
