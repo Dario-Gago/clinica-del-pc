@@ -526,8 +526,8 @@ p {
 
 .admin-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 1rem;
   margin-bottom: 2rem;
   padding: 1.5rem 2rem;
   background: white;
@@ -540,6 +540,7 @@ p {
   margin: 0;
   font-size: 1.8rem;
   font-weight: 700;
+  flex: 1;
 }
 
 .back-btn {
@@ -553,6 +554,7 @@ p {
   font-weight: 600;
   transition: all 0.3s ease;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
 }
 
 .back-btn:hover {
@@ -850,14 +852,15 @@ p {
 
 .step-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 0.75rem;
   margin-bottom: 0.75rem;
 }
 
 .step-number {
   font-weight: 600;
   color: var(--color-primary);
+  flex-shrink: 0;
 }
 
 .step-badge {
@@ -873,11 +876,19 @@ p {
   font-weight: 700;
 }
 
+.step-title {
+  flex: 1;
+  font-weight: 600;
+  color: var(--color-text);
+  font-size: 0.95rem;
+}
+
 .step-status {
   font-size: 0.85rem;
   padding: 0.4rem 0.8rem;
   border-radius: 20px;
   font-weight: 600;
+  flex-shrink: 0;
 }
 
 .step-status.completed {

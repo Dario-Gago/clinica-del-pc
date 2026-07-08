@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Swal from 'sweetalert2'
+import { steps } from './steps'
 
 const AdminPanel = () => {
   const navigate = useNavigate()
@@ -43,6 +44,13 @@ const AdminPanel = () => {
     } finally {
       setLoading(false)
     }
+  }
+
+  const getImageUrl = (imageName) => {
+    const serverUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:3001'
+      : `http://${window.location.hostname}:3001`
+    return `${serverUrl}/uploads/${imageName}`
   }
 
   const toggleStudent = (studentId) => {
@@ -162,45 +170,51 @@ const AdminPanel = () => {
                               </div>
                             ) : (
                               <div className="steps-list">
-                                {computer.steps.map((step) => (
-                                  <div key={step.id} className={`step-item ${step.completed ? 'completed' : ''}`}>
-                                    <div className="step-header">
-                                      <div className="step-number">
-                                        <span className="step-badge">{step.step_id}</span>
+                                {computer.steps.map((step) => {
+                                  const stepData = steps.find(s => s.id === step.step_id)
+                                  return (
+                                    <div key={step.id} className={`step-item ${step.completed ? 'completed' : ''}`}>
+                                      <div className="step-header">
+                                        <div className="step-number">
+                                          <span className="step-badge">{step.step_id}</span>
+                                        </div>
+                                        <div className="step-title">
+                                          {stepData ? stepData.title : `Paso ${step.step_id}`}
+                                        </div>
+                                        <span className={`step-status ${step.completed ? 'completed' : 'pending'}`}>
+                                          {step.completed ? '✓ Completado' : '○ Pendiente'}
+                                        </span>
                                       </div>
-                                      <span className={`step-status ${step.completed ? 'completed' : 'pending'}`}>
-                                        {step.completed ? '✓ Completado' : '○ Pendiente'}
-                                      </span>
+                                    
+                                      {step.notes && (
+                                        <div className="step-notes">
+                                          <span className="notes-icon">📝</span>
+                                          <span>{step.notes}</span>
+                                        </div>
+                                      )}
+                                      
+                                      {step.images && step.images.length > 0 && (
+                                        <div className="step-images">
+                                          <div className="images-header">
+                                            <span className="images-icon">📷</span>
+                                            <span>{step.images.length} imagen(es)</span>
+                                          </div>
+                                          <div className="images-grid">
+                                            {step.images.map((image) => (
+                                              <div key={image.id} className="image-item">
+                                                <img 
+                                                  src={getImageUrl(image.image_name)} 
+                                                  alt={image.image_name}
+                                                  onClick={() => window.open(getImageUrl(image.image_name), '_blank')}
+                                                />
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
-                                    
-                                    {step.notes && (
-                                      <div className="step-notes">
-                                        <span className="notes-icon">📝</span>
-                                        <span>{step.notes}</span>
-                                      </div>
-                                    )}
-                                    
-                                    {step.images && step.images.length > 0 && (
-                                      <div className="step-images">
-                                        <div className="images-header">
-                                          <span className="images-icon">📷</span>
-                                          <span>{step.images.length} imagen(es)</span>
-                                        </div>
-                                        <div className="images-grid">
-                                          {step.images.map((image) => (
-                                            <div key={image.id} className="image-item">
-                                              <img 
-                                                src={`http://localhost:3001/uploads/${image.image_name}`} 
-                                                alt={image.image_name}
-                                                onClick={() => window.open(`http://localhost:3001/uploads/${image.image_name}`, '_blank')}
-                                              />
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                ))}
+                                  )
+                                })}
                               </div>
                             )}
                           </div>
