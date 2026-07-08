@@ -49,22 +49,31 @@ const pool = new Pool({
 // Initialize database tables
 async function initDB() {
   try {
-    // Create students table
+    // Create students table (sin nombre_pc)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS students (
         id SERIAL PRIMARY KEY,
         nombre VARCHAR(100) NOT NULL,
         apellido VARCHAR(100) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create computers table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS computers (
+        id SERIAL PRIMARY KEY,
+        student_id INTEGER REFERENCES students(id) ON DELETE CASCADE,
         nombre_pc VARCHAR(100) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
-    // Create steps table
+    // Create steps table (con computer_id en lugar de student_id)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS steps (
         id SERIAL PRIMARY KEY,
-        student_id INTEGER REFERENCES students(id) ON DELETE CASCADE,
+        computer_id INTEGER REFERENCES computers(id) ON DELETE CASCADE,
         step_id INTEGER NOT NULL,
         completed BOOLEAN DEFAULT FALSE,
         notes TEXT,
@@ -114,35 +123,54 @@ app.post('/api/save', upload.array('images', 50), async (req, res) => {
       throw new Error('userInfo is required');
     }
 
-    // Insert or update student
+    // Insert or get student
     let studentResult;
     const existingStudent = await client.query(
-      'SELECT id FROM students WHERE nombre = $1 AND apellido = $2 AND nombre_pc = $3',
-      [parsedUserInfo.nombre, parsedUserInfo.apellido, parsedUserInfo.nombrePC]
+      'SELECT id FROM students WHERE nombre = $1 AND apellido = $2',
+      [parsedUserInfo.nombre, parsedUserInfo.apellido]
     );
 
     if (existingStudent.rows.length > 0) {
       studentResult = existingStudent.rows[0];
     } else {
       studentResult = await client.query(
-        'INSERT INTO students (nombre, apellido, nombre_pc) VALUES ($1, $2, $3) RETURNING id',
-        [parsedUserInfo.nombre, parsedUserInfo.apellido, parsedUserInfo.nombrePC]
+        'INSERT INTO students (nombre, apellido) VALUES ($1, $2) RETURNING id',
+        [parsedUserInfo.nombre, parsedUserInfo.apellido]
       );
       studentResult = studentResult.rows[0];
     }
 
     const studentId = studentResult.id;
 
-    // Delete existing steps for this student
-    await client.query('DELETE FROM steps WHERE student_id = $1', [studentId]);
+    // Insert or get computer
+    let computerResult;
+    const existingComputer = await client.query(
+      'SELECT id FROM computers WHERE student_id = $1 AND nombre_pc = $2',
+      [studentId, parsedUserInfo.nombrePC]
+    );
+
+    if (existingComputer.rows.length > 0) {
+      computerResult = existingComputer.rows[0];
+    } else {
+      computerResult = await client.query(
+        'INSERT INTO computers (student_id, nombre_pc) VALUES ($1, $2) RETURNING id',
+        [studentId, parsedUserInfo.nombrePC]
+      );
+      computerResult = computerResult.rows[0];
+    }
+
+    const computerId = computerResult.id;
+
+    // Delete existing steps for this computer only (no borra otros computadores)
+    await client.query('DELETE FROM steps WHERE computer_id = $1', [computerId]);
 
     // Insert steps
     for (const [stepId, completed] of Object.entries(parsedCompletedSteps)) {
       const stepResult = await client.query(
-        `INSERT INTO steps (student_id, step_id, completed, notes) 
+        `INSERT INTO steps (computer_id, step_id, completed, notes) 
          VALUES ($1, $2, $3, $4) 
          RETURNING id`,
-        [studentId, parseInt(stepId), completed, parsedStepNotes[stepId] || null]
+        [computerId, parseInt(stepId), completed, parsedStepNotes[stepId] || null]
       );
 
       const stepRecordId = stepResult.rows[0].id;
@@ -155,11 +183,12 @@ app.post('/api/save', upload.array('images', 50), async (req, res) => {
           const uploadedFile = uploadedFiles.find(f => f.originalname === imageInfo.originalName);
           
           if (uploadedFile) {
-            // Cambiar nombre del archivo: nombre_estudiante_apellido_paso_timestamp.ext
+            // Cambiar nombre del archivo: nombre_estudiante_apellido_nombrepc_paso_timestamp.ext
             const studentName = `${parsedUserInfo.nombre}_${parsedUserInfo.apellido}`;
+            const pcName = parsedUserInfo.nombrePC.replace(/[^a-zA-Z0-9]/g, '_');
             const timestamp = Date.now();
             const ext = path.extname(uploadedFile.originalname);
-            const newFileName = `${studentName}_paso${stepId}_${timestamp}${ext}`;
+            const newFileName = `${studentName}_${pcName}_paso${stepId}_${timestamp}${ext}`;
             
             // Renombrar archivo
             const oldPath = uploadedFile.path;
@@ -176,7 +205,7 @@ app.post('/api/save', upload.array('images', 50), async (req, res) => {
     }
 
     await client.query('COMMIT');
-    res.json({ success: true, message: 'Data saved successfully', studentId });
+    res.json({ success: true, message: 'Data saved successfully', studentId, computerId });
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error saving data:', error);
@@ -198,19 +227,31 @@ app.get('/api/student/:studentId', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Student not found' });
     }
 
-    // Get steps
-    const stepsResult = await pool.query('SELECT * FROM steps WHERE student_id = $1', [studentId]);
+    // Get computers for this student
+    const computersResult = await pool.query('SELECT * FROM computers WHERE student_id = $1 ORDER BY created_at DESC', [studentId]);
     
-    // Get images for each step
-    const stepsWithImages = await Promise.all(
-      stepsResult.rows.map(async (step) => {
-        const imagesResult = await pool.query(
-          'SELECT * FROM images WHERE step_record_id = $1',
-          [step.id]
+    // Get steps for each computer
+    const computersWithSteps = await Promise.all(
+      computersResult.rows.map(async (computer) => {
+        const stepsResult = await pool.query('SELECT * FROM steps WHERE computer_id = $1', [computer.id]);
+        
+        // Get images for each step
+        const stepsWithImages = await Promise.all(
+          stepsResult.rows.map(async (step) => {
+            const imagesResult = await pool.query(
+              'SELECT * FROM images WHERE step_record_id = $1',
+              [step.id]
+            );
+            return {
+              ...step,
+              images: imagesResult.rows
+            };
+          })
         );
+
         return {
-          ...step,
-          images: imagesResult.rows
+          ...computer,
+          steps: stepsWithImages
         };
       })
     );
@@ -218,7 +259,7 @@ app.get('/api/student/:studentId', async (req, res) => {
     res.json({
       success: true,
       student: studentResult.rows[0],
-      steps: stepsWithImages
+      computers: computersWithSteps
     });
   } catch (error) {
     console.error('Error fetching student data:', error);

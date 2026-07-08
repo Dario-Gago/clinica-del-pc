@@ -306,6 +306,35 @@ function App() {
     }))
   }
 
+  const handleNewPC = () => {
+    if (confirm('¿Estás seguro de que quieres empezar con un nuevo PC? Se mantendrán tus datos personales.')) {
+      // Reiniciar todo excepto nombre y apellido del estudiante
+      setUserInfo(prev => ({
+        nombre: prev.nombre,
+        apellido: prev.apellido,
+        nombrePC: ''
+      }))
+      setCompletedSteps({})
+      setStepNotes({})
+      setStepImages({})
+      setImageFiles({})
+      setShowForm(true)
+      // Actualizar localStorage con los datos del estudiante
+      const currentData = JSON.parse(localStorage.getItem('clinicaDelPC') || '{}')
+      localStorage.setItem('clinicaDelPC', JSON.stringify({
+        ...currentData,
+        userInfo: {
+          nombre: userInfo.nombre,
+          apellido: userInfo.apellido,
+          nombrePC: ''
+        },
+        showForm: true,
+        completedSteps: {},
+        stepNotes: {}
+      }))
+    }
+  }
+
   if (showForm) {
     return (
       <div className="app">
@@ -471,6 +500,9 @@ function App() {
 
       <footer className="footer">
         <p>Lista de verificación para evaluación práctica</p>
+        <button onClick={handleNewPC} className="new-pc-btn">
+          🔄 Nuevo PC
+        </button>
       </footer>
     </div>
   )
