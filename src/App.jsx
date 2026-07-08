@@ -147,6 +147,7 @@ function App() {
   })
   const [showForm, setShowForm] = useState(true)
   const [stepNotes, setStepNotes] = useState({})
+  const [stepImages, setStepImages] = useState({})
 
   const toggleStep = (stepId) => {
     setCompletedSteps(prev => ({
@@ -159,6 +160,28 @@ function App() {
     setStepNotes(prev => ({
       ...prev,
       [stepId]: note
+    }))
+  }
+
+  const handleImageUpload = (stepId, e) => {
+    const files = e.target.files
+    if (files && files.length > 0) {
+      const imageArray = Array.from(files).map(file => ({
+        name: file.name,
+        url: URL.createObjectURL(file)
+      }))
+      
+      setStepImages(prev => ({
+        ...prev,
+        [stepId]: [...(prev[stepId] || []), ...imageArray]
+      }))
+    }
+  }
+
+  const removeImage = (stepId, index) => {
+    setStepImages(prev => ({
+      ...prev,
+      [stepId]: prev[stepId].filter((_, i) => i !== index)
     }))
   }
 
@@ -287,7 +310,7 @@ function App() {
                 </div>
 
                 <div className="notes-section">
-                  <label htmlFor={`note-${step.id}`}>📝 Notas:</label>
+                  <label htmlFor={`note-${step.id}`}>Notas:</label>
                   <textarea
                     id={`note-${step.id}`}
                     value={stepNotes[step.id] || ''}
@@ -295,6 +318,40 @@ function App() {
                     placeholder="Agrega tus notas aquí..."
                     rows="3"
                   />
+                </div>
+
+                <div className="images-section">
+                  <label>Evidencia fotográfica:</label>
+                  <div className="image-upload">
+                    <input
+                      type="file"
+                      id={`image-${step.id}`}
+                      accept="image/*"
+                      capture="environment"
+                      multiple
+                      onChange={(e) => handleImageUpload(step.id, e)}
+                      style={{ display: 'none' }}
+                    />
+                    <label htmlFor={`image-${step.id}`} className="upload-btn">
+                      📸 Tomar foto
+                    </label>
+                  </div>
+                  
+                  {stepImages[step.id] && stepImages[step.id].length > 0 && (
+                    <div className="images-grid">
+                      {stepImages[step.id].map((image, index) => (
+                        <div key={index} className="image-item">
+                          <img src={image.url} alt={image.name} />
+                          <button
+                            className="remove-image-btn"
+                            onClick={() => removeImage(step.id, index)}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
