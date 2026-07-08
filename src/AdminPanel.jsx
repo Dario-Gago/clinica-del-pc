@@ -53,6 +53,54 @@ const AdminPanel = () => {
     return `${serverUrl}/uploads/${imageName}`
   }
 
+  const handleExportExcel = async () => {
+    try {
+      const serverUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? 'http://localhost:3001'
+        : `http://${window.location.hostname}:3001`
+
+      Swal.fire({
+        title: 'Generando Excel...',
+        text: 'Por favor espera mientras se genera el archivo',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading()
+        }
+      })
+
+      const response = await fetch(`${serverUrl}/api/admin/export-excel`)
+      
+      if (!response.ok) {
+        throw new Error('Error al generar el archivo Excel')
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'clinica_del_pc_export.xlsx'
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      Swal.fire({
+        icon: 'success',
+        title: '¡Excel generado!',
+        text: 'El archivo se ha descargado exitosamente',
+        confirmButtonColor: '#22c55e'
+      })
+    } catch (error) {
+      console.error('Error exporting to Excel:', error)
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Error al generar el archivo Excel: ' + error.message,
+        confirmButtonColor: '#1e40af'
+      })
+    }
+  }
+
   const toggleStudent = (studentId) => {
     setExpandedStudent(expandedStudent === studentId ? null : studentId)
     setExpandedComputer(null)
@@ -67,7 +115,12 @@ const AdminPanel = () => {
       <div className="admin-panel">
         <div className="admin-header">
           <h1>🔧 Panel de Administrador</h1>
-          <button onClick={() => navigate('/')} className="back-btn">← Volver</button>
+          <div className="header-actions">
+            <button onClick={handleExportExcel} className="export-btn">
+              📊 Exportar Excel
+            </button>
+            <button onClick={() => navigate('/')} className="back-btn">← Volver</button>
+          </div>
         </div>
         <div className="loading-state">
           <div className="spinner"></div>
@@ -91,7 +144,12 @@ const AdminPanel = () => {
     <div className="admin-panel">
       <div className="admin-header">
         <h1>🔧 Panel de Administrador</h1>
-        <button onClick={() => navigate('/')} className="back-btn">← Volver</button>
+        <div className="header-actions">
+          <button onClick={handleExportExcel} className="export-btn">
+            📊 Exportar Excel
+          </button>
+          <button onClick={() => navigate('/')} className="back-btn">← Volver</button>
+        </div>
       </div>
 
       <div className="stats-grid">
