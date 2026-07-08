@@ -2,11 +2,35 @@ import express from 'express';
 import cors from 'cors';
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3001;
+const uploadDir = process.env.UPLOAD_DIR || 'uploads';
+
+// Crear directorio de uploads si no existe
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+  console.log(`Directorio de uploads creado: ${uploadDir}`);
+}
+
+// Configuración de multer
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    // Generar nombre único: timestamp + nombre original
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ storage: storage });
 
 // Middleware
 app.use(cors());
@@ -55,7 +79,7 @@ async function initDB() {
         id SERIAL PRIMARY KEY,
         step_record_id INTEGER REFERENCES steps(id) ON DELETE CASCADE,
         image_name VARCHAR(255) NOT NULL,
-        image_data TEXT NOT NULL,
+        image_path VARCHAR(500) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -69,18 +93,32 @@ async function initDB() {
 // API Routes
 
 // Save complete student data
-app.post('/api/save', async (req, res) => {
+app.post('/api/save', upload.array('images', 50), async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    const { userInfo, completedSteps, stepNotes, stepImages } = req.body;
+    const { userInfo, completedSteps, stepNotes, imagesInfo } = req.body;
+    const uploadedFiles = req.files;
+
+    console.log('Received data:', { userInfo, completedSteps, stepNotes, imagesInfo });
+    console.log('Uploaded files:', uploadedFiles?.length || 0);
+
+    // Parse JSON strings
+    const parsedUserInfo = userInfo ? (typeof userInfo === 'string' ? JSON.parse(userInfo) : userInfo) : null;
+    const parsedCompletedSteps = completedSteps ? (typeof completedSteps === 'string' ? JSON.parse(completedSteps) : completedSteps) : {};
+    const parsedStepNotes = stepNotes ? (typeof stepNotes === 'string' ? JSON.parse(stepNotes) : stepNotes) : {};
+    const parsedImagesInfo = imagesInfo ? (typeof imagesInfo === 'string' ? JSON.parse(imagesInfo) : imagesInfo) : {};
+
+    if (!parsedUserInfo) {
+      throw new Error('userInfo is required');
+    }
 
     // Insert or update student
     let studentResult;
     const existingStudent = await client.query(
       'SELECT id FROM students WHERE nombre = $1 AND apellido = $2 AND nombre_pc = $3',
-      [userInfo.nombre, userInfo.apellido, userInfo.nombrePC]
+      [parsedUserInfo.nombre, parsedUserInfo.apellido, parsedUserInfo.nombrePC]
     );
 
     if (existingStudent.rows.length > 0) {
@@ -88,7 +126,7 @@ app.post('/api/save', async (req, res) => {
     } else {
       studentResult = await client.query(
         'INSERT INTO students (nombre, apellido, nombre_pc) VALUES ($1, $2, $3) RETURNING id',
-        [userInfo.nombre, userInfo.apellido, userInfo.nombrePC]
+        [parsedUserInfo.nombre, parsedUserInfo.apellido, parsedUserInfo.nombrePC]
       );
       studentResult = studentResult.rows[0];
     }
@@ -99,24 +137,40 @@ app.post('/api/save', async (req, res) => {
     await client.query('DELETE FROM steps WHERE student_id = $1', [studentId]);
 
     // Insert steps
-    for (const [stepId, completed] of Object.entries(completedSteps)) {
+    for (const [stepId, completed] of Object.entries(parsedCompletedSteps)) {
       const stepResult = await client.query(
         `INSERT INTO steps (student_id, step_id, completed, notes) 
          VALUES ($1, $2, $3, $4) 
          RETURNING id`,
-        [studentId, parseInt(stepId), completed, stepNotes[stepId] || null]
+        [studentId, parseInt(stepId), completed, parsedStepNotes[stepId] || null]
       );
 
       const stepRecordId = stepResult.rows[0].id;
 
       // Insert images for this step
-      if (stepImages[stepId] && stepImages[stepId].length > 0) {
-        for (const image of stepImages[stepId]) {
-          const imageData = image.data || image.url;
-          await client.query(
-            'INSERT INTO images (step_record_id, image_name, image_data) VALUES ($1, $2, $3)',
-            [stepRecordId, image.name, imageData]
-          );
+      if (parsedImagesInfo && parsedImagesInfo[stepId]) {
+        const stepImages = parsedImagesInfo[stepId];
+        for (let i = 0; i < stepImages.length; i++) {
+          const imageInfo = stepImages[i];
+          const uploadedFile = uploadedFiles.find(f => f.originalname === imageInfo.originalName);
+          
+          if (uploadedFile) {
+            // Cambiar nombre del archivo: nombre_estudiante_apellido_paso_timestamp.ext
+            const studentName = `${parsedUserInfo.nombre}_${parsedUserInfo.apellido}`;
+            const timestamp = Date.now();
+            const ext = path.extname(uploadedFile.originalname);
+            const newFileName = `${studentName}_paso${stepId}_${timestamp}${ext}`;
+            
+            // Renombrar archivo
+            const oldPath = uploadedFile.path;
+            const newPath = path.join(uploadDir, newFileName);
+            fs.renameSync(oldPath, newPath);
+            
+            await client.query(
+              'INSERT INTO images (step_record_id, image_name, image_path) VALUES ($1, $2, $3)',
+              [stepRecordId, newFileName, newPath]
+            );
+          }
         }
       }
     }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 const steps = [
   {
@@ -148,6 +148,51 @@ function App() {
   const [showForm, setShowForm] = useState(true)
   const [stepNotes, setStepNotes] = useState({})
   const [stepImages, setStepImages] = useState({})
+  const [imageFiles, setImageFiles] = useState({})
+
+  // Cargar datos desde localStorage al montar
+  useEffect(() => {
+    const savedData = localStorage.getItem('clinicaDelPC')
+    console.log('Datos en localStorage:', savedData)
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData)
+        console.log('Datos parseados:', parsed)
+        if (parsed.userInfo) {
+          console.log('Setting userInfo:', parsed.userInfo)
+          setUserInfo(parsed.userInfo)
+          // No ocultamos el formulario, solo autocompletamos los campos
+        }
+        if (parsed.showForm !== undefined) setShowForm(parsed.showForm)
+        if (parsed.completedSteps) setCompletedSteps(parsed.completedSteps)
+        if (parsed.stepNotes) setStepNotes(parsed.stepNotes)
+        // No cargamos imágenes desde localStorage ya que ahora se guardan en el servidor
+      } catch (error) {
+        console.error('Error al cargar datos:', error)
+      }
+    }
+  }, [])
+
+  // Guardar datos en localStorage cuando cambien (sin imágenes)
+  useEffect(() => {
+    // No guardar si userInfo está vacío (estado inicial)
+    if (!userInfo.nombre && !userInfo.apellido && !userInfo.nombrePC) {
+      return
+    }
+    
+    const dataToSave = {
+      userInfo,
+      showForm,
+      completedSteps,
+      stepNotes
+      // No guardamos imágenes en localStorage
+    }
+    try {
+      localStorage.setItem('clinicaDelPC', JSON.stringify(dataToSave))
+    } catch (error) {
+      console.error('Error al guardar datos:', error)
+    }
+  }, [userInfo, showForm, completedSteps, stepNotes])
 
   const toggleStep = (stepId) => {
     setCompletedSteps(prev => ({
@@ -168,6 +213,8 @@ function App() {
     if (files && files.length > 0) {
       const imageArray = Array.from(files).map(file => ({
         name: file.name,
+        originalName: file.name,
+        file: file,
         url: URL.createObjectURL(file)
       }))
       
@@ -175,11 +222,20 @@ function App() {
         ...prev,
         [stepId]: [...(prev[stepId] || []), ...imageArray]
       }))
+      
+      setImageFiles(prev => ({
+        ...prev,
+        [stepId]: [...(prev[stepId] || []), ...files]
+      }))
     }
   }
 
   const removeImage = (stepId, index) => {
     setStepImages(prev => ({
+      ...prev,
+      [stepId]: prev[stepId].filter((_, i) => i !== index)
+    }))
+    setImageFiles(prev => ({
       ...prev,
       [stepId]: prev[stepId].filter((_, i) => i !== index)
     }))
@@ -195,17 +251,34 @@ function App() {
         ? 'http://localhost:3001'
         : `http://${window.location.hostname}:3001`
       
+      // Crear FormData para enviar archivos
+      const formData = new FormData()
+      
+      // Agregar datos JSON
+      formData.append('userInfo', JSON.stringify(userInfo))
+      formData.append('completedSteps', JSON.stringify(completedSteps))
+      formData.append('stepNotes', JSON.stringify(stepNotes))
+      
+      // Preparar información de imágenes
+      const imagesInfo = {}
+      Object.keys(stepImages).forEach(stepId => {
+        imagesInfo[stepId] = stepImages[stepId].map(img => ({
+          name: img.name,
+          originalName: img.originalName
+        }))
+      })
+      formData.append('imagesInfo', JSON.stringify(imagesInfo))
+      
+      // Agregar archivos de imagen
+      Object.keys(imageFiles).forEach(stepId => {
+        imageFiles[stepId].forEach(file => {
+          formData.append('images', file)
+        })
+      })
+      
       const response = await fetch(`${serverUrl}/api/save`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userInfo,
-          completedSteps,
-          stepNotes,
-          stepImages
-        })
+        body: formData
       })
 
       const data = await response.json()
