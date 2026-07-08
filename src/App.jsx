@@ -146,11 +146,19 @@ function App() {
     nombrePC: ''
   })
   const [showForm, setShowForm] = useState(true)
+  const [stepNotes, setStepNotes] = useState({})
 
   const toggleStep = (stepId) => {
     setCompletedSteps(prev => ({
       ...prev,
       [stepId]: !prev[stepId]
+    }))
+  }
+
+  const handleNoteChange = (stepId, note) => {
+    setStepNotes(prev => ({
+      ...prev,
+      [stepId]: note
     }))
   }
 
@@ -276,6 +284,17 @@ function App() {
                 
                 <div className="evidence">
                   <strong>Evidencia:</strong> {step.evidence}
+                </div>
+
+                <div className="notes-section">
+                  <label htmlFor={`note-${step.id}`}>📝 Notas:</label>
+                  <textarea
+                    id={`note-${step.id}`}
+                    value={stepNotes[step.id] || ''}
+                    onChange={(e) => handleNoteChange(step.id, e.target.value)}
+                    placeholder="Agrega tus notas aquí..."
+                    rows="3"
+                  />
                 </div>
               </div>
             </div>
