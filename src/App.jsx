@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import Swal from 'sweetalert2'
 
 const steps = [
   {
@@ -148,6 +149,51 @@ function App() {
   const [showForm, setShowForm] = useState(true)
   const [stepNotes, setStepNotes] = useState({})
   const [stepImages, setStepImages] = useState({})
+  const [imageFiles, setImageFiles] = useState({})
+
+  // Cargar datos desde localStorage al montar
+  useEffect(() => {
+    const savedData = localStorage.getItem('clinicaDelPC')
+    console.log('Datos en localStorage:', savedData)
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData)
+        console.log('Datos parseados:', parsed)
+        if (parsed.userInfo) {
+          console.log('Setting userInfo:', parsed.userInfo)
+          setUserInfo(parsed.userInfo)
+          // No ocultamos el formulario, solo autocompletamos los campos
+        }
+        if (parsed.showForm !== undefined) setShowForm(parsed.showForm)
+        if (parsed.completedSteps) setCompletedSteps(parsed.completedSteps)
+        if (parsed.stepNotes) setStepNotes(parsed.stepNotes)
+        // No cargamos imágenes desde localStorage ya que ahora se guardan en el servidor
+      } catch (error) {
+        console.error('Error al cargar datos:', error)
+      }
+    }
+  }, [])
+
+  // Guardar datos en localStorage cuando cambien (sin imágenes)
+  useEffect(() => {
+    // No guardar si userInfo está vacío (estado inicial)
+    if (!userInfo.nombre && !userInfo.apellido && !userInfo.nombrePC) {
+      return
+    }
+    
+    const dataToSave = {
+      userInfo,
+      showForm,
+      completedSteps,
+      stepNotes
+      // No guardamos imágenes en localStorage
+    }
+    try {
+      localStorage.setItem('clinicaDelPC', JSON.stringify(dataToSave))
+    } catch (error) {
+      console.error('Error al guardar datos:', error)
+    }
+  }, [userInfo, showForm, completedSteps, stepNotes])
 
   const toggleStep = (stepId) => {
     setCompletedSteps(prev => ({
@@ -168,12 +214,19 @@ function App() {
     if (files && files.length > 0) {
       const imageArray = Array.from(files).map(file => ({
         name: file.name,
+        originalName: file.name,
+        file: file,
         url: URL.createObjectURL(file)
       }))
       
       setStepImages(prev => ({
         ...prev,
         [stepId]: [...(prev[stepId] || []), ...imageArray]
+      }))
+      
+      setImageFiles(prev => ({
+        ...prev,
+        [stepId]: [...(prev[stepId] || []), ...files]
       }))
     }
   }
@@ -183,10 +236,79 @@ function App() {
       ...prev,
       [stepId]: prev[stepId].filter((_, i) => i !== index)
     }))
+    setImageFiles(prev => ({
+      ...prev,
+      [stepId]: prev[stepId].filter((_, i) => i !== index)
+    }))
   }
 
   const completedCount = Object.values(completedSteps).filter(Boolean).length
   const progress = (completedCount / steps.length) * 100
+
+  const saveToDatabase = async () => {
+    try {
+      // Usar la URL del servidor actual o localhost para desarrollo
+      const serverUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? 'http://localhost:3001'
+        : `http://${window.location.hostname}:3001`
+      
+      // Crear FormData para enviar archivos
+      const formData = new FormData()
+      
+      // Agregar datos JSON
+      formData.append('userInfo', JSON.stringify(userInfo))
+      formData.append('completedSteps', JSON.stringify(completedSteps))
+      formData.append('stepNotes', JSON.stringify(stepNotes))
+      
+      // Preparar información de imágenes
+      const imagesInfo = {}
+      Object.keys(stepImages).forEach(stepId => {
+        imagesInfo[stepId] = stepImages[stepId].map(img => ({
+          name: img.name,
+          originalName: img.originalName
+        }))
+      })
+      formData.append('imagesInfo', JSON.stringify(imagesInfo))
+      
+      // Agregar archivos de imagen
+      Object.keys(imageFiles).forEach(stepId => {
+        imageFiles[stepId].forEach(file => {
+          formData.append('images', file)
+        })
+      })
+      
+      const response = await fetch(`${serverUrl}/api/save`, {
+        method: 'POST',
+        body: formData
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        Swal.fire({
+          icon: 'success',
+          title: '¡Guardado!',
+          text: 'Datos guardados exitosamente en la base de datos',
+          confirmButtonColor: '#22c55e'
+        })
+      } else {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Error al guardar: ' + data.error,
+          confirmButtonColor: '#1e40af'
+        })
+      }
+    } catch (error) {
+      console.error('Error al guardar en base de datos:', error)
+      Swal.fire({
+        icon: 'error',
+        title: 'Error de conexión',
+        text: 'Error de conexión con el servidor. Asegúrate de que el backend esté corriendo.',
+        confirmButtonColor: '#1e40af'
+      })
+    }
+  }
 
   const handleUserInfoSubmit = (e) => {
     e.preventDefault()
@@ -198,6 +320,53 @@ function App() {
       ...prev,
       [e.target.name]: e.target.value
     }))
+  }
+
+  const handleNewPC = () => {
+    Swal.fire({
+      title: '¿Nuevo PC?',
+      text: '¿Estás seguro de que quieres empezar con un nuevo PC? Se mantendrán tus datos personales.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#22c55e',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Sí, nuevo PC',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        // Reiniciar todo excepto nombre y apellido del estudiante
+        setUserInfo(prev => ({
+          nombre: prev.nombre,
+          apellido: prev.apellido,
+          nombrePC: ''
+        }))
+        setCompletedSteps({})
+        setStepNotes({})
+        setStepImages({})
+        setImageFiles({})
+        setShowForm(true)
+        // Actualizar localStorage con los datos del estudiante
+        const currentData = JSON.parse(localStorage.getItem('clinicaDelPC') || '{}')
+        localStorage.setItem('clinicaDelPC', JSON.stringify({
+          ...currentData,
+          userInfo: {
+            nombre: userInfo.nombre,
+            apellido: userInfo.apellido,
+            nombrePC: ''
+          },
+          showForm: true,
+          completedSteps: {},
+          stepNotes: {}
+        }))
+        
+        Swal.fire({
+          icon: 'success',
+          title: 'Reiniciado',
+          text: 'Puedes empezar con un nuevo PC',
+          confirmButtonColor: '#22c55e'
+        })
+      }
+    })
   }
 
   if (showForm) {
@@ -278,6 +447,10 @@ function App() {
           </div>
           <p className="progress-text">{completedCount} de {steps.length} pasos completados ({Math.round(progress)}%)</p>
         </div>
+
+        <button onClick={saveToDatabase} className="save-db-btn">
+          💾 Guardar en Base de Datos
+        </button>
       </header>
 
       <main className="main-content">
@@ -361,6 +534,9 @@ function App() {
 
       <footer className="footer">
         <p>Lista de verificación para evaluación práctica</p>
+        <button onClick={handleNewPC} className="new-pc-btn">
+          🔄 Nuevo PC
+        </button>
       </footer>
     </div>
   )
