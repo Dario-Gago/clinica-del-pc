@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import XLSX from 'xlsx';
 
 dotenv.config();
 
@@ -36,6 +37,9 @@ const upload = multer({ storage: storage });
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Servir archivos estáticos desde el directorio de uploads
+app.use('/uploads', express.static(uploadDir));
 
 // PostgreSQL connection
 const pool = new Pool({
@@ -274,6 +278,218 @@ app.get('/api/students', async (req, res) => {
     res.json({ success: true, students: result.rows });
   } catch (error) {
     console.error('Error fetching students:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get all data (students with computers, steps and images)
+app.get('/api/admin/all-data', async (req, res) => {
+  try {
+    // Get all students
+    const studentsResult = await pool.query('SELECT * FROM students ORDER BY created_at DESC');
+    
+    // Get all data for each student
+    const studentsWithFullData = await Promise.all(
+      studentsResult.rows.map(async (student) => {
+        // Get computers for this student
+        const computersResult = await pool.query(
+          'SELECT * FROM computers WHERE student_id = $1 ORDER BY created_at DESC',
+          [student.id]
+        );
+        
+        // Get steps for each computer
+        const computersWithSteps = await Promise.all(
+          computersResult.rows.map(async (computer) => {
+            const stepsResult = await pool.query(
+              'SELECT * FROM steps WHERE computer_id = $1 ORDER BY step_id',
+              [computer.id]
+            );
+            
+            // Get images for each step
+            const stepsWithImages = await Promise.all(
+              stepsResult.rows.map(async (step) => {
+                const imagesResult = await pool.query(
+                  'SELECT * FROM images WHERE step_record_id = $1 ORDER BY created_at',
+                  [step.id]
+                );
+                return {
+                  ...step,
+                  images: imagesResult.rows
+                };
+              })
+            );
+
+            return {
+              ...computer,
+              steps: stepsWithImages
+            };
+          })
+        );
+
+        return {
+          ...student,
+          computers: computersWithSteps
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      data: studentsWithFullData
+    });
+  } catch (error) {
+    console.error('Error fetching all data:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Export to Excel
+app.get('/api/admin/export-excel', async (req, res) => {
+  try {
+    // Get all students with their data
+    const studentsResult = await pool.query('SELECT * FROM students ORDER BY created_at DESC');
+    
+    const studentsWithFullData = await Promise.all(
+      studentsResult.rows.map(async (student) => {
+        const computersResult = await pool.query(
+          'SELECT * FROM computers WHERE student_id = $1 ORDER BY created_at DESC',
+          [student.id]
+        );
+        
+        const computersWithSteps = await Promise.all(
+          computersResult.rows.map(async (computer) => {
+            const stepsResult = await pool.query(
+              'SELECT * FROM steps WHERE computer_id = $1 ORDER BY step_id',
+              [computer.id]
+            );
+            
+            const stepsWithImages = await Promise.all(
+              stepsResult.rows.map(async (step) => {
+                const imagesResult = await pool.query(
+                  'SELECT * FROM images WHERE step_record_id = $1 ORDER BY created_at',
+                  [step.id]
+                );
+                return {
+                  ...step,
+                  images: imagesResult.rows
+                };
+              })
+            );
+
+            return {
+              ...computer,
+              steps: stepsWithImages
+            };
+          })
+        );
+
+        return {
+          ...student,
+          computers: computersWithSteps
+        };
+      })
+    );
+
+    // Create workbook
+    const workbook = XLSX.utils.book_new();
+
+    // Create a summary sheet with all students
+    const summaryData = [
+      ['Estudiante', 'Apellido', 'Fecha Registro', 'Total PCs', 'Total Pasos', 'Pasos Completados']
+    ];
+
+    studentsWithFullData.forEach(student => {
+      const totalSteps = student.computers.reduce((acc, comp) => acc + comp.steps.length, 0);
+      const completedSteps = student.computers.reduce((acc, comp) => 
+        acc + comp.steps.filter(s => s.completed).length, 0);
+      
+      summaryData.push([
+        student.nombre,
+        student.apellido,
+        new Date(student.created_at).toLocaleDateString(),
+        student.computers.length,
+        totalSteps,
+        completedSteps
+      ]);
+    });
+
+    const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+    
+    // Auto-fit column widths for summary sheet
+    const colWidths = summaryData[0].map((_, colIndex) => {
+      const maxWidth = summaryData.reduce((max, row) => {
+        const cellValue = row[colIndex] ? row[colIndex].toString() : '';
+        return Math.max(max, cellValue.length);
+      }, 0);
+      return { wch: Math.min(maxWidth + 2, 50) }; // Limit max width to 50
+    });
+    summarySheet['!cols'] = colWidths;
+    
+    XLSX.utils.book_append_sheet(workbook, summarySheet, 'Resumen');
+
+    // Create a sheet for each student with detailed data
+    studentsWithFullData.forEach(student => {
+      const studentData = [
+        ['Nombre', student.nombre],
+        ['Apellido', student.apellido],
+        ['Fecha Registro', new Date(student.created_at).toLocaleString()],
+        [],
+        ['Computadores'],
+        ['Nombre PC', 'Fecha Creación', 'Total Pasos', 'Pasos Completados']
+      ];
+
+      student.computers.forEach(computer => {
+        const completedCount = computer.steps.filter(s => s.completed).length;
+        studentData.push([
+          computer.nombre_pc,
+          new Date(computer.created_at).toLocaleDateString(),
+          computer.steps.length,
+          completedCount
+        ]);
+
+        // Add steps for this computer
+        studentData.push([]);
+        studentData.push([`Pasos - ${computer.nombre_pc}`]);
+        studentData.push(['Paso', 'Completado', 'Notas', 'Imágenes']);
+
+        computer.steps.forEach(step => {
+          const imageNames = step.images.map(img => img.image_name).join(', ');
+          studentData.push([
+            step.step_id,
+            step.completed ? 'Sí' : 'No',
+            step.notes || '',
+            imageNames
+          ]);
+        });
+        studentData.push([]);
+      });
+
+      const studentSheet = XLSX.utils.aoa_to_sheet(studentData);
+      
+      // Auto-fit column widths for student sheet
+      const studentColWidths = studentData[0].map((_, colIndex) => {
+        const maxWidth = studentData.reduce((max, row) => {
+          const cellValue = row[colIndex] ? row[colIndex].toString() : '';
+          return Math.max(max, cellValue.length);
+        }, 0);
+        return { wch: Math.min(maxWidth + 2, 50) }; // Limit max width to 50
+      });
+      studentSheet['!cols'] = studentColWidths;
+      
+      const sheetName = `${student.nombre}_${student.apellido}`.substring(0, 31).replace(/[\\/?*[\]]/g, '');
+      XLSX.utils.book_append_sheet(workbook, studentSheet, sheetName);
+    });
+
+    // Generate buffer
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    // Send file
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=clinica_del_pc_export.xlsx');
+    res.send(buffer);
+
+  } catch (error) {
+    console.error('Error exporting to Excel:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
