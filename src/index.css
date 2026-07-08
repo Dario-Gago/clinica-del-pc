@@ -966,6 +966,101 @@ p {
   word-break: break-all;
 }
 
+/* Admin Panel Responsive */
+@media (max-width: 768px) {
+  .admin-panel {
+    padding: 1rem;
+  }
+
+  .admin-header {
+    padding: 1rem 1.25rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .admin-header h1 {
+    font-size: 1.4rem;
+  }
+
+  .back-btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .stat-card {
+    padding: 1rem;
+  }
+
+  .stat-icon {
+    font-size: 2rem;
+    width: 50px;
+    height: 50px;
+  }
+
+  .stat-number {
+    font-size: 1.5rem;
+  }
+
+  .student-header {
+    padding: 1rem;
+  }
+
+  .student-avatar {
+    width: 45px;
+    height: 45px;
+    font-size: 1rem;
+  }
+
+  .student-info-header h2 {
+    font-size: 1rem;
+  }
+
+  .student-details {
+    padding: 1rem;
+  }
+
+  .computer-header {
+    padding: 0.875rem;
+  }
+
+  .computer-details {
+    padding: 0.875rem;
+  }
+
+  .step-item {
+    padding: 0.875rem;
+  }
+
+  .step-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .step-title {
+    font-size: 0.9rem;
+  }
+
+  .step-status {
+    align-self: flex-start;
+  }
+
+  .images-grid {
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 0.5rem;
+  }
+
+  .image-item img {
+    height: 80px;
+  }
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .app {
