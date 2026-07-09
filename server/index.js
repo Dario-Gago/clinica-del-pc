@@ -6,6 +6,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import XLSX from 'xlsx';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ImageRun } from 'docx';
 
 dotenv.config();
 
@@ -32,6 +33,9 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage: storage });
+
+// Multer con almacenamiento en memoria (para exportar Word sin guardar en disco)
+const uploadMemory = multer({ storage: multer.memoryStorage() });
 
 // Middleware
 app.use(cors());
@@ -490,6 +494,224 @@ app.get('/api/admin/export-excel', async (req, res) => {
 
   } catch (error) {
     console.error('Error exporting to Excel:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Export to Word for student
+app.post('/api/export-word', uploadMemory.array('images'), async (req, res) => {
+  try {
+    const userInfo = req.body.userInfo;
+    const completedSteps = req.body.completedSteps;
+    const stepNotes = req.body.stepNotes;
+    const imagesInfo = req.body.imagesInfo;
+    const steps = req.body.steps;
+    const imageMapping = req.body.imageMapping;
+    const uploadedFiles = req.files;
+    
+    const parsedUserInfo = JSON.parse(userInfo);
+    const parsedCompletedSteps = JSON.parse(completedSteps);
+    const parsedStepNotes = JSON.parse(stepNotes);
+    const parsedImagesInfo = JSON.parse(imagesInfo);
+    const parsedSteps = JSON.parse(steps);
+    const parsedImageMapping = JSON.parse(imageMapping);
+
+    // Create array of uploaded files by index
+    const fileArray = uploadedFiles || [];
+
+    // Helper function to get image buffer by index
+    const getImageBuffer = (index) => {
+      if (fileArray[index] && fileArray[index].buffer) {
+        return fileArray[index].buffer;
+      }
+      return null;
+    };
+
+    // Build document children
+    const documentChildren = [
+      // Title
+      new Paragraph({
+        text: "Clínica del PC - Reporte de Mantenimiento",
+        heading: HeadingLevel.HEADING_1,
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 400 }
+      }),
+      
+      // Student Info
+      new Paragraph({
+        text: "Información del Estudiante",
+        heading: HeadingLevel.HEADING_2,
+        spacing: { before: 400, after: 200 }
+      }),
+      new Paragraph({
+        children: [
+          new TextRun({ text: "Nombre: ", bold: true }),
+          new TextRun(parsedUserInfo.nombre)
+        ]
+      }),
+      new Paragraph({
+        children: [
+          new TextRun({ text: "Apellido: ", bold: true }),
+          new TextRun(parsedUserInfo.apellido)
+        ]
+      }),
+      new Paragraph({
+        children: [
+          new TextRun({ text: "Computador: ", bold: true }),
+          new TextRun(parsedUserInfo.nombrePC)
+        ]
+      }),
+      new Paragraph({
+        children: [
+          new TextRun({ text: "Fecha: ", bold: true }),
+          new TextRun(new Date().toLocaleDateString())
+        ]
+      }),
+      
+      // Steps
+      new Paragraph({
+        text: "Pasos de Mantenimiento",
+        heading: HeadingLevel.HEADING_2,
+        spacing: { before: 400, after: 200 }
+      })
+    ];
+
+    // Process each step
+    for (const step of parsedSteps) {
+      const isCompleted = parsedCompletedSteps[step.id] || false;
+      const notes = parsedStepNotes[step.id] || '';
+      const images = parsedImagesInfo[step.id] || [];
+      const imageIndices = parsedImageMapping[step.id] || [];
+
+      // Step title and status
+      documentChildren.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: `Paso ${step.id}: ${step.title}`, bold: true, size: 28 }),
+            new TextRun({ text: isCompleted ? " ✓" : " ○", color: isCompleted ? "008000" : "FF0000", size: 28 })
+          ],
+          spacing: { before: 300, after: 200 }
+        })
+      );
+
+      // Instructions
+      documentChildren.push(
+        new Paragraph({
+          text: "Instrucciones:",
+          bold: true,
+          spacing: { before: 100 }
+        })
+      );
+      
+      step.instructions.forEach(instruction => {
+        documentChildren.push(
+          new Paragraph({
+            text: `• ${instruction}`,
+            bullet: { level: 0 },
+            spacing: { left: 720, hanging: 360 }
+          })
+        );
+      });
+
+      // Evidence required
+      documentChildren.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Evidencia requerida: ", bold: true }),
+            new TextRun(step.evidence)
+          ],
+          spacing: { before: 100 }
+        })
+      );
+
+      // Status
+      documentChildren.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Estado: ", bold: true }),
+            new TextRun(isCompleted ? "Completado" : "Pendiente"),
+            new TextRun({ text: isCompleted ? " ✓" : " ○", color: isCompleted ? "008000" : "FF0000" })
+          ],
+          spacing: { before: 100 }
+        })
+      );
+
+      // Notes
+      if (notes) {
+        documentChildren.push(
+          new Paragraph({
+            children: [
+              new TextRun({ text: "Notas: ", bold: true }),
+              new TextRun(notes)
+            ],
+            spacing: { before: 100 }
+          })
+        );
+      }
+
+      // Images
+      if (imageIndices.length > 0) {
+        documentChildren.push(
+          new Paragraph({
+            text: `Imágenes (${imageIndices.length}):`,
+            bold: true,
+            spacing: { before: 100 }
+          })
+        );
+
+        for (const index of imageIndices) {
+          const imageBuffer = getImageBuffer(index);
+          if (imageBuffer) {
+            documentChildren.push(
+              new Paragraph({
+                children: [
+                  new ImageRun({
+                    data: imageBuffer,
+                    transformation: { width: 400, height: 300 }
+                  })
+                ],
+                spacing: { before: 100 }
+              })
+            );
+          } else {
+            documentChildren.push(
+              new Paragraph({
+                text: `• Imagen no disponible`,
+                italics: true,
+                spacing: { before: 100 }
+              })
+            );
+          }
+        }
+      }
+
+      // Separator
+      documentChildren.push(
+        new Paragraph({
+          text: "─".repeat(80),
+          spacing: { before: 300, after: 100 }
+        })
+      );
+    }
+
+    // Create document
+    const doc = new Document({
+      sections: [{
+        properties: {},
+        children: documentChildren
+      }]
+    });
+
+    // Generate buffer
+    const buffer = await Packer.toBuffer(doc);
+
+    // Send file
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', `attachment; filename=reporte_${parsedUserInfo.nombre}_${parsedUserInfo.apellido}_${parsedUserInfo.nombrePC}.docx`);
+    res.send(buffer);
+
+  } catch (error) {
+    console.error('Error exporting to Word:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

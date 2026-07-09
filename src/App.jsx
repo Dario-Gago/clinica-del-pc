@@ -233,6 +233,80 @@ function App() {
     })
   }
 
+  const handleExportWord = async () => {
+    try {
+      const serverUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? 'http://localhost:3001'
+        : `http://${window.location.hostname}:3001`
+
+      Swal.fire({
+        title: 'Generando Word...',
+        text: 'Por favor espera mientras se genera el documento',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading()
+        }
+      })
+
+      // Create FormData to send images
+      const formData = new FormData()
+      formData.append('userInfo', JSON.stringify(userInfo))
+      formData.append('completedSteps', JSON.stringify(completedSteps))
+      formData.append('stepNotes', JSON.stringify(stepNotes))
+      formData.append('imagesInfo', JSON.stringify(stepImages))
+      formData.append('steps', JSON.stringify(steps))
+
+      // Add image files with step mapping
+      const imageMapping = {};
+      let fileIndex = 0;
+      
+      Object.keys(imageFiles).forEach(stepId => {
+        imageMapping[stepId] = [];
+        imageFiles[stepId].forEach(file => {
+          formData.append('images', file);
+          imageMapping[stepId].push(fileIndex);
+          fileIndex++;
+        });
+      });
+      
+      formData.append('imageMapping', JSON.stringify(imageMapping));
+
+      const response = await fetch(`${serverUrl}/api/export-word`, {
+        method: 'POST',
+        body: formData
+      })
+
+      if (!response.ok) {
+        throw new Error('Error al generar el documento Word')
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `reporte_${userInfo.nombre}_${userInfo.apellido}_${userInfo.nombrePC}.docx`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      Swal.fire({
+        icon: 'success',
+        title: '¡Word generado!',
+        text: 'El documento se ha descargado exitosamente',
+        confirmButtonColor: '#22c55e'
+      })
+    } catch (error) {
+      console.error('Error exporting to Word:', error)
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Error al generar el documento Word: ' + error.message,
+        confirmButtonColor: '#1e40af'
+      })
+    }
+  }
+
   if (showForm) {
     return (
       <div className="app">
@@ -399,6 +473,9 @@ function App() {
       <footer className="footer">
         <p>Lista de verificación para evaluación práctica</p>
         <div className="footer-buttons">
+          <button onClick={handleExportWord} className="export-word-btn">
+            📄 Exportar Word
+          </button>
           <button onClick={saveToDatabase} className="save-db-btn">
             💾 Guardar en Base de Datos
           </button>
