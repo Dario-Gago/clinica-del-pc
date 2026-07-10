@@ -102,6 +102,8 @@ El servidor se ejecutará en `http://{IP de red local}:3001` y `http://localhost
 
 No se necesita internet 🌐, solo que todos los dispositivos estén conectados a la misma red WiFi o cable (puede ser un punto de acceso de celular o un router sin salida a internet).
 
+> ⚠️ **Importante con hotspots de celular:** algunos teléfonos activan **aislamiento de cliente** (client/AP isolation), lo que impide que los celulares se comuniquen con la computadora del servidor. Si al intentar guardar sale "Error de conexión", usa un router WiFi en lugar del hotspot, o verifica en el teléfono que esté desactivado el aislamiento/client isolation.
+
 Una vez iniciado el backend, inicia Vite de forma que escuche en la red y apunte al backend con la variable `VITE_API_URL`:
 
 ```bash

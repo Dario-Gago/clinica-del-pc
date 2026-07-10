@@ -127,6 +127,20 @@ p {
   box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);
 }
 
+/* Connection Banner */
+.connection-banner {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  color: #991b1b;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border: 2px solid #ef4444;
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
+}
+
 /* User Info Display */
 .user-info-display {
   background-color: var(--color-bg-light);

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Swal from 'sweetalert2'
 import { pasos } from './pasos'
+import { obtenerUrlServidor } from './configuracion'
 
 const AdminPanel = () => {
   const navigate = useNavigate()
@@ -16,9 +17,7 @@ const AdminPanel = () => {
 
   const obtenerDatos = async () => {
     try {
-      const urlServidor = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-        ? 'http://localhost:3001'
-        : `http://${window.location.hostname}:3001`
+      const urlServidor = obtenerUrlServidor()
 
       const respuesta = await fetch(`${urlServidor}/api/admin/all-data`)
       const resultado = await respuesta.json()
@@ -38,7 +37,7 @@ const AdminPanel = () => {
       Swal.fire({
         icon: 'error',
         title: 'Error de conexión',
-        text: 'Error de conexión con el servidor',
+        text: 'Error de conexión con el servidor. Si usas un hotspot de celular, es posible que bloquee la comunicación entre dispositivos (aislamiento de cliente).',
         confirmButtonColor: '#1e40af'
       })
     } finally {
@@ -47,17 +46,12 @@ const AdminPanel = () => {
   }
 
   const obtenerUrlImagen = (nombreImagen) => {
-    const urlServidor = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      ? 'http://localhost:3001'
-      : `http://${window.location.hostname}:3001`
-    return `${urlServidor}/uploads/${nombreImagen}`
+    return `${obtenerUrlServidor()}/uploads/${nombreImagen}`
   }
 
   const manejarExportarExcel = async () => {
     try {
-      const urlServidor = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-        ? 'http://localhost:3001'
-        : `http://${window.location.hostname}:3001`
+      const urlServidor = obtenerUrlServidor()
 
       Swal.fire({
         title: 'Generando Excel...',

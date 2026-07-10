@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import Swal from 'sweetalert2'
 import { pasos } from './pasos'
+import { obtenerUrlServidor } from './configuracion'
 
 // --- IndexedDB helpers para persistir imágenes en el navegador ---
 const NOMBRE_DB = 'clinicaDelPC_imagenes'
@@ -77,6 +78,7 @@ function App() {
   const [notasPasos, setNotasPasos] = useState({})
   const [imagenesPasos, setImagenesPasos] = useState({})
   const [archivosImagen, setArchivosImagen] = useState({})
+  const [conectado, setConectado] = useState(true)
 
   // Cargar datos desde localStorage y de IndexedDB al montar
   useEffect(() => {
@@ -126,6 +128,30 @@ function App() {
     }
 
     cargarDatos()
+  }, [])
+
+  // Verificar conectividad con el backend
+  useEffect(() => {
+    const verificarConexion = async () => {
+      try {
+        const respuesta = await fetch(`${obtenerUrlServidor()}/api/health`, { method: 'GET' })
+        setConectado(respuesta.ok)
+      } catch (error) {
+        setConectado(false)
+      }
+    }
+    verificarConexion()
+    const intervalo = setInterval(verificarConexion, 10000)
+    return () => clearInterval(intervalo)
+  }, [])
+
+  // Solicitar almacenamiento persistente para que las imágenes no se borren
+  useEffect(() => {
+    if (navigator.storage?.persist) {
+      navigator.storage.persist().catch(() => {
+        console.warn('No se pudo solicitar almacenamiento persistente')
+      })
+    }
   }, [])
 
   // Guardar datos en localStorage cuando cambien (sin imágenes)
@@ -242,10 +268,8 @@ function App() {
 
   const guardarEnBaseDatos = async () => {
     try {
-      // Usar la URL del servidor actual o localhost para desarrollo
-      const urlServidor = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-        ? 'http://localhost:3001'
-        : `http://${window.location.hostname}:3001`
+      // Usar la URL del servidor (VITE_API_URL, IP de la ventana o localhost)
+      const urlServidor = obtenerUrlServidor()
       
       // Crear FormData para enviar archivos
       const datosFormulario = new FormData()
@@ -299,7 +323,7 @@ function App() {
       Swal.fire({
         icon: 'error',
         title: 'Error de conexión',
-        text: 'Error de conexión con el servidor. Asegúrate de que el backend esté corriendo.',
+        text: 'Error de conexión con el servidor. Asegúrate de que el backend esté corriendo. Si usas un hotspot de celular, es posible que bloquee la comunicación entre dispositivos (aislamiento de cliente).',
         confirmButtonColor: '#1e40af'
       })
     }
@@ -377,9 +401,7 @@ function App() {
 
   const manejarExportarWord = async () => {
     try {
-      const urlServidor = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-        ? 'http://localhost:3001'
-        : `http://${window.location.hostname}:3001`
+      const urlServidor = obtenerUrlServidor()
 
       Swal.fire({
         title: 'Generando Word...',
@@ -460,6 +482,11 @@ function App() {
   if (mostrarFormulario) {
     return (
       <div className="app">
+        {!conectado && (
+          <div className="connection-banner">
+            ⚠️ No se detecta conexión con el servidor. Verifica que el backend esté corriendo. Si usas hotspot de celular, puede estar bloqueando la comunicación entre dispositivos.
+          </div>
+        )}
         <header className="header">
           <h1>🏥 Clínica del PC</h1>
           <p className="subtitle">Guía de mantenimiento de software</p>
@@ -520,6 +547,11 @@ function App() {
 
   return (
     <div className="app">
+      {!conectado && (
+        <div className="connection-banner">
+          ⚠️ No se detecta conexión con el servidor. Verifica que el backend esté corriendo. Si usas hotspot de celular, puede estar bloqueando la comunicación entre dispositivos.
+        </div>
+      )}
       <header className="header">
         <h1>🏥 Clínica del PC</h1>
         <p className="subtitle">Guía de mantenimiento de software</p>
