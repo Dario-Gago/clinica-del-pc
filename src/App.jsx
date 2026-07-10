@@ -2,6 +2,69 @@ import { useState, useEffect } from 'react'
 import Swal from 'sweetalert2'
 import { pasos } from './pasos'
 
+// --- IndexedDB helpers para persistir imágenes en el navegador ---
+const NOMBRE_DB = 'clinicaDelPC_imagenes'
+const VERSION_DB = 1
+const NOMBRE_ALMACEN = 'imagenes'
+
+const abrirDB = () => {
+  return new Promise((resolve, reject) => {
+    const solicitud = indexedDB.open(NOMBRE_DB, VERSION_DB)
+    solicitud.onupgradeneeded = (evento) => {
+      const db = evento.target.result
+      if (!db.objectStoreNames.contains(NOMBRE_ALMACEN)) {
+        db.createObjectStore(NOMBRE_ALMACEN, { keyPath: 'nombre' })
+      }
+    }
+    solicitud.onsuccess = (evento) => resolve(evento.target.result)
+    solicitud.onerror = (evento) => reject(evento.target.error)
+  })
+}
+
+const guardarImagenDB = async (imagen) => {
+  const db = await abrirDB()
+  return new Promise((resolve, reject) => {
+    const transaccion = db.transaction(NOMBRE_ALMACEN, 'readwrite')
+    const almacen = transaccion.objectStore(NOMBRE_ALMACEN)
+    const solicitud = almacen.put(imagen)
+    solicitud.onsuccess = () => resolve()
+    solicitud.onerror = (evento) => reject(evento.target.error)
+  })
+}
+
+const obtenerImagenesDB = async () => {
+  const db = await abrirDB()
+  return new Promise((resolve, reject) => {
+    const transaccion = db.transaction(NOMBRE_ALMACEN, 'readonly')
+    const almacen = transaccion.objectStore(NOMBRE_ALMACEN)
+    const solicitud = almacen.getAll()
+    solicitud.onsuccess = () => resolve(solicitud.result)
+    solicitud.onerror = (evento) => reject(evento.target.error)
+  })
+}
+
+const eliminarImagenDB = async (nombre) => {
+  const db = await abrirDB()
+  return new Promise((resolve, reject) => {
+    const transaccion = db.transaction(NOMBRE_ALMACEN, 'readwrite')
+    const almacen = transaccion.objectStore(NOMBRE_ALMACEN)
+    const solicitud = almacen.delete(nombre)
+    solicitud.onsuccess = () => resolve()
+    solicitud.onerror = (evento) => reject(evento.target.error)
+  })
+}
+
+const limpiarImagenesDB = async () => {
+  const db = await abrirDB()
+  return new Promise((resolve, reject) => {
+    const transaccion = db.transaction(NOMBRE_ALMACEN, 'readwrite')
+    const almacen = transaccion.objectStore(NOMBRE_ALMACEN)
+    const solicitud = almacen.clear()
+    solicitud.onsuccess = () => resolve()
+    solicitud.onerror = (evento) => reject(evento.target.error)
+  })
+}
+
 function App() {
   const [pasosCompletados, setPasosCompletados] = useState({})
   const [pasoActual, setPasoActual] = useState(1)
@@ -15,27 +78,54 @@ function App() {
   const [imagenesPasos, setImagenesPasos] = useState({})
   const [archivosImagen, setArchivosImagen] = useState({})
 
-  // Cargar datos desde localStorage al montar
+  // Cargar datos desde localStorage y de IndexedDB al montar
   useEffect(() => {
-    const datosGuardados = localStorage.getItem('clinicaDelPC')
-    console.log('Datos en localStorage:', datosGuardados)
-    if (datosGuardados) {
-      try {
-        const parseado = JSON.parse(datosGuardados)
-        console.log('Datos parseados:', parseado)
-        if (parseado.userInfo) {
-          console.log('Configurando infoUsuario:', parseado.userInfo)
-          setInfoUsuario(parseado.userInfo)
-          // No ocultamos el formulario, solo autocompletamos los campos
+    const cargarDatos = async () => {
+      const datosGuardados = localStorage.getItem('clinicaDelPC')
+      console.log('Datos en localStorage:', datosGuardados)
+      if (datosGuardados) {
+        try {
+          const parseado = JSON.parse(datosGuardados)
+          console.log('Datos parseados:', parseado)
+          if (parseado.userInfo) {
+            console.log('Configurando infoUsuario:', parseado.userInfo)
+            setInfoUsuario(parseado.userInfo)
+            // No ocultamos el formulario, solo autocompletamos los campos
+          }
+          if (parseado.showForm !== undefined) setMostrarFormulario(parseado.showForm)
+          if (parseado.completedSteps) setPasosCompletados(parseado.completedSteps)
+          if (parseado.stepNotes) setNotasPasos(parseado.stepNotes)
+        } catch (error) {
+          console.error('Error al cargar datos:', error)
         }
-        if (parseado.showForm !== undefined) setMostrarFormulario(parseado.showForm)
-        if (parseado.completedSteps) setPasosCompletados(parseado.completedSteps)
-        if (parseado.stepNotes) setNotasPasos(parseado.stepNotes)
-        // No cargamos imágenes desde localStorage ya que ahora se guardan en el servidor
+      }
+
+      try {
+        const imagenes = await obtenerImagenesDB()
+        const imagenesPorPaso = {}
+        const archivosPorPaso = {}
+        imagenes.forEach(img => {
+          const url = URL.createObjectURL(img.blob)
+          if (!imagenesPorPaso[img.idPaso]) imagenesPorPaso[img.idPaso] = []
+          imagenesPorPaso[img.idPaso].push({
+            nombre: img.nombre,
+            nombreOriginal: img.nombreOriginal,
+            url
+          })
+          if (!archivosPorPaso[img.idPaso]) archivosPorPaso[img.idPaso] = []
+          archivosPorPaso[img.idPaso].push({
+            archivo: img.blob,
+            nombre: img.nombre
+          })
+        })
+        setImagenesPasos(imagenesPorPaso)
+        setArchivosImagen(archivosPorPaso)
       } catch (error) {
-        console.error('Error al cargar datos:', error)
+        console.error('Error al cargar imágenes:', error)
       }
     }
+
+    cargarDatos()
   }, [])
 
   // Guardar datos en localStorage cuando cambien (sin imágenes)
@@ -73,7 +163,7 @@ function App() {
     }))
   }
 
-  const manejarSubidaImagen = (idPaso, e) => {
+  const manejarSubidaImagen = async (idPaso, e) => {
     const archivos = e.target.files
     if (archivos && archivos.length > 0) {
       const timestamp = Date.now()
@@ -84,12 +174,29 @@ function App() {
         const nombreUnico = `${timestamp}_${idPaso}_${indice}_${nombreSeguro}`
         
         return {
+          idPaso,
           nombre: nombreUnico,
           nombreOriginal: archivo.name,
           url: URL.createObjectURL(archivo),
           archivo: archivo
         }
       })
+
+      // Guardar imágenes en IndexedDB para que no se pierdan al recargar
+      try {
+        await Promise.all(
+          nuevasImagenes.map(img =>
+            guardarImagenDB({
+              idPaso: img.idPaso,
+              nombre: img.nombre,
+              nombreOriginal: img.nombreOriginal,
+              blob: img.archivo
+            })
+          )
+        )
+      } catch (error) {
+        console.error('Error al guardar imagen en IndexedDB:', error)
+      }
       
       setImagenesPasos(prev => ({
         ...prev,
@@ -111,6 +218,15 @@ function App() {
   }
 
   const eliminarImagen = (idPaso, indice) => {
+    const imagen = imagenesPasos[idPaso]?.[indice]
+    if (imagen?.url) URL.revokeObjectURL(imagen.url)
+
+    if (imagen?.nombre) {
+      eliminarImagenDB(imagen.nombre).catch(error => {
+        console.error('Error al eliminar imagen de IndexedDB:', error)
+      })
+    }
+
     setImagenesPasos(prev => ({
       ...prev,
       [idPaso]: prev[idPaso].filter((_, i) => i !== indice)
@@ -214,6 +330,16 @@ function App() {
       cancelButtonText: 'Cancelar'
     }).then((result) => {
       if (result.isConfirmed) {
+        // Liberar URLs de objetos y limpiar imágenes de IndexedDB
+        Object.values(imagenesPasos).forEach(lista =>
+          lista.forEach(img => {
+            if (img.url) URL.revokeObjectURL(img.url)
+          })
+        )
+        limpiarImagenesDB().catch(error => {
+          console.error('Error al limpiar imágenes de IndexedDB:', error)
+        })
+
         // Reiniciar todo excepto nombre y apellido del estudiante
         setInfoUsuario(prev => ({
           nombre: prev.nombre,
