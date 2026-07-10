@@ -10,43 +10,43 @@ import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Imag
 
 dotenv.config();
 
-const app = express();
-const port = process.env.PORT || 3001;
-const uploadDir = process.env.UPLOAD_DIR || 'uploads';
+const aplicacion = express();
+const puerto = process.env.PORT || 3001;
+const directorioSubidas = process.env.UPLOAD_DIR || 'uploads';
 
-// Crear directorio de uploads si no existe
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-  console.log(`Directorio de uploads creado: ${uploadDir}`);
+// Crear directorio de subidas si no existe
+if (!fs.existsSync(directorioSubidas)) {
+  fs.mkdirSync(directorioSubidas, { recursive: true });
+  console.log(`Directorio de subidas creado: ${directorioSubidas}`);
 }
 
 // Configuración de multer
-const storage = multer.diskStorage({
+const almacenamiento = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, uploadDir);
+    cb(null, directorioSubidas);
   },
   filename: (req, file, cb) => {
-    // Generar nombre único: timestamp + nombre original
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
+    // Generar sufijo único: timestamp + nombre original
+    const sufijoUnico = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, sufijoUnico + path.extname(file.originalname));
   }
 });
 
-const upload = multer({ storage: storage });
+const subida = multer({ storage: almacenamiento });
 
 // Multer con almacenamiento en memoria (para exportar Word sin guardar en disco)
-const uploadMemory = multer({ storage: multer.memoryStorage() });
+const subidaMemoria = multer({ storage: multer.memoryStorage() });
 
 // Middleware
-app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+aplicacion.use(cors());
+aplicacion.use(express.json({ limit: '50mb' }));
+aplicacion.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Servir archivos estáticos desde el directorio de uploads
-app.use('/uploads', express.static(uploadDir));
+// Servir archivos estáticos desde el directorio de subidas
+aplicacion.use('/uploads', express.static(directorioSubidas));
 
-// PostgreSQL connection
-const pool = new Pool({
+// Conexión a PostgreSQL
+const poolConexiones = new Pool({
   host: process.env.DB_HOST || 'localhost',
   port: process.env.DB_PORT || 5432,
   database: process.env.DB_NAME || 'clinica_del_pc',
@@ -54,11 +54,11 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD || 'postgres',
 });
 
-// Initialize database tables
-async function initDB() {
+// Inicializar tablas de la base de datos
+async function inicializarBaseDeDatos() {
   try {
-    // Create students table (sin nombre_pc)
-    await pool.query(`
+    // Crear tabla students (sin nombre_pc)
+    await poolConexiones.query(`
       CREATE TABLE IF NOT EXISTS students (
         id SERIAL PRIMARY KEY,
         nombre VARCHAR(100) NOT NULL,
@@ -67,8 +67,8 @@ async function initDB() {
       )
     `);
 
-    // Create computers table
-    await pool.query(`
+    // Crear tabla computers
+    await poolConexiones.query(`
       CREATE TABLE IF NOT EXISTS computers (
         id SERIAL PRIMARY KEY,
         student_id INTEGER REFERENCES students(id) ON DELETE CASCADE,
@@ -77,8 +77,8 @@ async function initDB() {
       )
     `);
 
-    // Create steps table (con computer_id en lugar de student_id)
-    await pool.query(`
+    // Crear tabla steps (con computer_id en lugar de student_id)
+    await poolConexiones.query(`
       CREATE TABLE IF NOT EXISTS steps (
         id SERIAL PRIMARY KEY,
         computer_id INTEGER REFERENCES computers(id) ON DELETE CASCADE,
@@ -90,8 +90,8 @@ async function initDB() {
       )
     `);
 
-    // Create images table
-    await pool.query(`
+    // Crear tabla images
+    await poolConexiones.query(`
       CREATE TABLE IF NOT EXISTS images (
         id SERIAL PRIMARY KEY,
         step_record_id INTEGER REFERENCES steps(id) ON DELETE CASCADE,
@@ -101,435 +101,438 @@ async function initDB() {
       )
     `);
 
-    console.log('Database tables initialized successfully');
+    console.log('Tablas de la base de datos inicializadas correctamente');
   } catch (error) {
-    console.error('Error initializing database:', error);
+    console.error('Error al inicializar la base de datos:', error);
   }
 }
 
-// API Routes
+// Rutas de la API
 
-// Save complete student data
-app.post('/api/save', upload.array('images', 50), async (req, res) => {
-  const client = await pool.connect();
+// Guardar datos completos del estudiante
+aplicacion.post('/api/save', subida.array('images', 50), async (req, res) => {
+  const cliente = await poolConexiones.connect();
   try {
-    await client.query('BEGIN');
+    await cliente.query('BEGIN');
 
-    const { userInfo, completedSteps, stepNotes, imagesInfo } = req.body;
-    const uploadedFiles = req.files;
+    const infoUsuario = req.body.userInfo;
+    const pasosCompletados = req.body.completedSteps;
+    const notasPasos = req.body.stepNotes;
+    const infoImagenes = req.body.imagesInfo;
+    const archivosSubidos = req.files;
 
-    console.log('Received data:', { userInfo, completedSteps, stepNotes, imagesInfo });
-    console.log('Uploaded files:', uploadedFiles?.length || 0);
+    console.log('Datos recibidos:', { infoUsuario, pasosCompletados, notasPasos, infoImagenes });
+    console.log('Archivos subidos:', archivosSubidos?.length || 0);
 
-    // Parse JSON strings
-    const parsedUserInfo = userInfo ? (typeof userInfo === 'string' ? JSON.parse(userInfo) : userInfo) : null;
-    const parsedCompletedSteps = completedSteps ? (typeof completedSteps === 'string' ? JSON.parse(completedSteps) : completedSteps) : {};
-    const parsedStepNotes = stepNotes ? (typeof stepNotes === 'string' ? JSON.parse(stepNotes) : stepNotes) : {};
-    const parsedImagesInfo = imagesInfo ? (typeof imagesInfo === 'string' ? JSON.parse(imagesInfo) : imagesInfo) : {};
+    // Parsear cadenas JSON
+    const infoUsuarioParseada = infoUsuario ? (typeof infoUsuario === 'string' ? JSON.parse(infoUsuario) : infoUsuario) : null;
+    const pasosCompletadosParseados = pasosCompletados ? (typeof pasosCompletados === 'string' ? JSON.parse(pasosCompletados) : pasosCompletados) : {};
+    const notasPasosParseadas = notasPasos ? (typeof notasPasos === 'string' ? JSON.parse(notasPasos) : notasPasos) : {};
+    const infoImagenesParseada = infoImagenes ? (typeof infoImagenes === 'string' ? JSON.parse(infoImagenes) : infoImagenes) : {};
 
-    if (!parsedUserInfo) {
-      throw new Error('userInfo is required');
+    if (!infoUsuarioParseada) {
+      throw new Error('infoUsuario es requerida');
     }
 
-    // Insert or get student
-    let studentResult;
-    const existingStudent = await client.query(
+    // Insertar u obtener estudiante
+    let resultadoEstudiante;
+    const estudianteExistente = await cliente.query(
       'SELECT id FROM students WHERE nombre = $1 AND apellido = $2',
-      [parsedUserInfo.nombre, parsedUserInfo.apellido]
+      [infoUsuarioParseada.nombre, infoUsuarioParseada.apellido]
     );
 
-    if (existingStudent.rows.length > 0) {
-      studentResult = existingStudent.rows[0];
+    if (estudianteExistente.rows.length > 0) {
+      resultadoEstudiante = estudianteExistente.rows[0];
     } else {
-      studentResult = await client.query(
+      resultadoEstudiante = await cliente.query(
         'INSERT INTO students (nombre, apellido) VALUES ($1, $2) RETURNING id',
-        [parsedUserInfo.nombre, parsedUserInfo.apellido]
+        [infoUsuarioParseada.nombre, infoUsuarioParseada.apellido]
       );
-      studentResult = studentResult.rows[0];
+      resultadoEstudiante = resultadoEstudiante.rows[0];
     }
 
-    const studentId = studentResult.id;
+    const idEstudiante = resultadoEstudiante.id;
 
-    // Insert or get computer
-    let computerResult;
-    const existingComputer = await client.query(
+    // Insertar u obtener computador
+    let resultadoComputador;
+    const computadorExistente = await cliente.query(
       'SELECT id FROM computers WHERE student_id = $1 AND nombre_pc = $2',
-      [studentId, parsedUserInfo.nombrePC]
+      [idEstudiante, infoUsuarioParseada.nombrePC]
     );
 
-    if (existingComputer.rows.length > 0) {
-      computerResult = existingComputer.rows[0];
+    if (computadorExistente.rows.length > 0) {
+      resultadoComputador = computadorExistente.rows[0];
     } else {
-      computerResult = await client.query(
+      resultadoComputador = await cliente.query(
         'INSERT INTO computers (student_id, nombre_pc) VALUES ($1, $2) RETURNING id',
-        [studentId, parsedUserInfo.nombrePC]
+        [idEstudiante, infoUsuarioParseada.nombrePC]
       );
-      computerResult = computerResult.rows[0];
+      resultadoComputador = resultadoComputador.rows[0];
     }
 
-    const computerId = computerResult.id;
+    const idComputador = resultadoComputador.id;
 
-    // Delete existing steps for this computer only (no borra otros computadores)
-    await client.query('DELETE FROM steps WHERE computer_id = $1', [computerId]);
+    // Eliminar pasos existentes solo de este computador (no borra otros computadores)
+    await cliente.query('DELETE FROM steps WHERE computer_id = $1', [idComputador]);
 
-    // Insert steps
-    for (const [stepId, completed] of Object.entries(parsedCompletedSteps)) {
-      const stepResult = await client.query(
+    // Insertar pasos
+    for (const [idPaso, completado] of Object.entries(pasosCompletadosParseados)) {
+      const resultadoPaso = await cliente.query(
         `INSERT INTO steps (computer_id, step_id, completed, notes) 
          VALUES ($1, $2, $3, $4) 
          RETURNING id`,
-        [computerId, parseInt(stepId), completed, parsedStepNotes[stepId] || null]
+        [idComputador, parseInt(idPaso), completado, notasPasosParseadas[idPaso] || null]
       );
 
-      const stepRecordId = stepResult.rows[0].id;
+      const idRegistroPaso = resultadoPaso.rows[0].id;
 
-      // Insert images for this step
-      if (parsedImagesInfo && parsedImagesInfo[stepId]) {
-        const stepImages = parsedImagesInfo[stepId];
-        for (let i = 0; i < stepImages.length; i++) {
-          const imageInfo = stepImages[i];
-          const uploadedFile = uploadedFiles.find(f => f.originalname === imageInfo.originalName);
+      // Insertar imágenes para este paso
+      if (infoImagenesParseada && infoImagenesParseada[idPaso]) {
+        const imagenesPaso = infoImagenesParseada[idPaso];
+        for (let i = 0; i < imagenesPaso.length; i++) {
+          const infoImagen = imagenesPaso[i];
+          const archivoSubido = archivosSubidos.find(f => f.originalname === infoImagen.originalName);
           
-          if (uploadedFile) {
+          if (archivoSubido) {
             // Cambiar nombre del archivo: nombre_estudiante_apellido_nombrepc_paso_timestamp.ext
-            const studentName = `${parsedUserInfo.nombre}_${parsedUserInfo.apellido}`;
-            const pcName = parsedUserInfo.nombrePC.replace(/[^a-zA-Z0-9]/g, '_');
-            const timestamp = Date.now();
-            const ext = path.extname(uploadedFile.originalname);
-            const newFileName = `${studentName}_${pcName}_paso${stepId}_${timestamp}${ext}`;
+            const nombreEstudiante = `${infoUsuarioParseada.nombre}_${infoUsuarioParseada.apellido}`;
+            const nombrePC = infoUsuarioParseada.nombrePC.replace(/[^a-zA-Z0-9]/g, '_');
+            const marcaTiempo = Date.now();
+            const extension = path.extname(archivoSubido.originalname);
+            const nuevoNombreArchivo = `${nombreEstudiante}_${nombrePC}_paso${idPaso}_${marcaTiempo}${extension}`;
             
             // Renombrar archivo
-            const oldPath = uploadedFile.path;
-            const newPath = path.join(uploadDir, newFileName);
-            fs.renameSync(oldPath, newPath);
+            const rutaAntigua = archivoSubido.path;
+            const rutaNueva = path.join(directorioSubidas, nuevoNombreArchivo);
+            fs.renameSync(rutaAntigua, rutaNueva);
             
-            await client.query(
+            await cliente.query(
               'INSERT INTO images (step_record_id, image_name, image_path) VALUES ($1, $2, $3)',
-              [stepRecordId, newFileName, newPath]
+              [idRegistroPaso, nuevoNombreArchivo, rutaNueva]
             );
           }
         }
       }
     }
 
-    await client.query('COMMIT');
-    res.json({ success: true, message: 'Data saved successfully', studentId, computerId });
+    await cliente.query('COMMIT');
+    res.json({ success: true, message: 'Datos guardados correctamente', idEstudiante, idComputador });
   } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('Error saving data:', error);
+    await cliente.query('ROLLBACK');
+    console.error('Error al guardar datos:', error);
     res.status(500).json({ success: false, error: error.message });
   } finally {
-    client.release();
+    cliente.release();
   }
 });
 
-// Get student data
-app.get('/api/student/:studentId', async (req, res) => {
+// Obtener datos del estudiante
+aplicacion.get('/api/student/:studentId', async (req, res) => {
   try {
-    const { studentId } = req.params;
+    const { studentId: idEstudiante } = req.params;
 
-    // Get student info
-    const studentResult = await pool.query('SELECT * FROM students WHERE id = $1', [studentId]);
+    // Obtener información del estudiante
+    const resultadoEstudiante = await poolConexiones.query('SELECT * FROM students WHERE id = $1', [idEstudiante]);
     
-    if (studentResult.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Student not found' });
+    if (resultadoEstudiante.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Estudiante no encontrado' });
     }
 
-    // Get computers for this student
-    const computersResult = await pool.query('SELECT * FROM computers WHERE student_id = $1 ORDER BY created_at DESC', [studentId]);
+    // Obtener computadores de este estudiante
+    const resultadoComputadores = await poolConexiones.query('SELECT * FROM computers WHERE student_id = $1 ORDER BY created_at DESC', [idEstudiante]);
     
-    // Get steps for each computer
-    const computersWithSteps = await Promise.all(
-      computersResult.rows.map(async (computer) => {
-        const stepsResult = await pool.query('SELECT * FROM steps WHERE computer_id = $1', [computer.id]);
+    // Obtener pasos para cada computador
+    const computadoresConPasos = await Promise.all(
+      resultadoComputadores.rows.map(async (computador) => {
+        const resultadoPasos = await poolConexiones.query('SELECT * FROM steps WHERE computer_id = $1', [computador.id]);
         
-        // Get images for each step
-        const stepsWithImages = await Promise.all(
-          stepsResult.rows.map(async (step) => {
-            const imagesResult = await pool.query(
+        // Obtener imágenes para cada paso
+        const pasosConImagenes = await Promise.all(
+          resultadoPasos.rows.map(async (paso) => {
+            const resultadoImagenes = await poolConexiones.query(
               'SELECT * FROM images WHERE step_record_id = $1',
-              [step.id]
+              [paso.id]
             );
             return {
-              ...step,
-              images: imagesResult.rows
+              ...paso,
+              images: resultadoImagenes.rows
             };
           })
         );
 
         return {
-          ...computer,
-          steps: stepsWithImages
+          ...computador,
+          steps: pasosConImagenes
         };
       })
     );
 
     res.json({
       success: true,
-      student: studentResult.rows[0],
-      computers: computersWithSteps
+      student: resultadoEstudiante.rows[0],
+      computers: computadoresConPasos
     });
   } catch (error) {
-    console.error('Error fetching student data:', error);
+    console.error('Error al obtener datos del estudiante:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Get all students
-app.get('/api/students', async (req, res) => {
+// Obtener todos los estudiantes
+aplicacion.get('/api/students', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM students ORDER BY created_at DESC');
-    res.json({ success: true, students: result.rows });
+    const resultado = await poolConexiones.query('SELECT * FROM students ORDER BY created_at DESC');
+    res.json({ success: true, students: resultado.rows });
   } catch (error) {
-    console.error('Error fetching students:', error);
+    console.error('Error al obtener estudiantes:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Get all data (students with computers, steps and images)
-app.get('/api/admin/all-data', async (req, res) => {
+// Obtener todos los datos (estudiantes con computadores, pasos e imágenes)
+aplicacion.get('/api/admin/all-data', async (req, res) => {
   try {
-    // Get all students
-    const studentsResult = await pool.query('SELECT * FROM students ORDER BY created_at DESC');
+    // Obtener todos los estudiantes
+    const resultadoEstudiantes = await poolConexiones.query('SELECT * FROM students ORDER BY created_at DESC');
     
-    // Get all data for each student
-    const studentsWithFullData = await Promise.all(
-      studentsResult.rows.map(async (student) => {
-        // Get computers for this student
-        const computersResult = await pool.query(
+    // Obtener todos los datos para cada estudiante
+    const estudiantesConDatosCompletos = await Promise.all(
+      resultadoEstudiantes.rows.map(async (estudiante) => {
+        // Obtener computadores de este estudiante
+        const resultadoComputadores = await poolConexiones.query(
           'SELECT * FROM computers WHERE student_id = $1 ORDER BY created_at DESC',
-          [student.id]
+          [estudiante.id]
         );
         
-        // Get steps for each computer
-        const computersWithSteps = await Promise.all(
-          computersResult.rows.map(async (computer) => {
-            const stepsResult = await pool.query(
+        // Obtener pasos para cada computador
+        const computadoresConPasos = await Promise.all(
+          resultadoComputadores.rows.map(async (computador) => {
+            const resultadoPasos = await poolConexiones.query(
               'SELECT * FROM steps WHERE computer_id = $1 ORDER BY step_id',
-              [computer.id]
+              [computador.id]
             );
             
-            // Get images for each step
-            const stepsWithImages = await Promise.all(
-              stepsResult.rows.map(async (step) => {
-                const imagesResult = await pool.query(
+            // Obtener imágenes para cada paso
+            const pasosConImagenes = await Promise.all(
+              resultadoPasos.rows.map(async (paso) => {
+                const resultadoImagenes = await poolConexiones.query(
                   'SELECT * FROM images WHERE step_record_id = $1 ORDER BY created_at',
-                  [step.id]
+                  [paso.id]
                 );
                 return {
-                  ...step,
-                  images: imagesResult.rows
+                  ...paso,
+                  images: resultadoImagenes.rows
                 };
               })
             );
 
             return {
-              ...computer,
-              steps: stepsWithImages
+              ...computador,
+              steps: pasosConImagenes
             };
           })
         );
 
         return {
-          ...student,
-          computers: computersWithSteps
+          ...estudiante,
+          computers: computadoresConPasos
         };
       })
     );
 
     res.json({
       success: true,
-      data: studentsWithFullData
+      data: estudiantesConDatosCompletos
     });
   } catch (error) {
-    console.error('Error fetching all data:', error);
+    console.error('Error al obtener todos los datos:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Export to Excel
-app.get('/api/admin/export-excel', async (req, res) => {
+// Exportar a Excel
+aplicacion.get('/api/admin/export-excel', async (req, res) => {
   try {
-    // Get all students with their data
-    const studentsResult = await pool.query('SELECT * FROM students ORDER BY created_at DESC');
+    // Obtener todos los estudiantes con sus datos
+    const resultadoEstudiantes = await poolConexiones.query('SELECT * FROM students ORDER BY created_at DESC');
     
-    const studentsWithFullData = await Promise.all(
-      studentsResult.rows.map(async (student) => {
-        const computersResult = await pool.query(
+    const estudiantesConDatosCompletos = await Promise.all(
+      resultadoEstudiantes.rows.map(async (estudiante) => {
+        const resultadoComputadores = await poolConexiones.query(
           'SELECT * FROM computers WHERE student_id = $1 ORDER BY created_at DESC',
-          [student.id]
+          [estudiante.id]
         );
         
-        const computersWithSteps = await Promise.all(
-          computersResult.rows.map(async (computer) => {
-            const stepsResult = await pool.query(
+        const computadoresConPasos = await Promise.all(
+          resultadoComputadores.rows.map(async (computador) => {
+            const resultadoPasos = await poolConexiones.query(
               'SELECT * FROM steps WHERE computer_id = $1 ORDER BY step_id',
-              [computer.id]
+              [computador.id]
             );
             
-            const stepsWithImages = await Promise.all(
-              stepsResult.rows.map(async (step) => {
-                const imagesResult = await pool.query(
+            const pasosConImagenes = await Promise.all(
+              resultadoPasos.rows.map(async (paso) => {
+                const resultadoImagenes = await poolConexiones.query(
                   'SELECT * FROM images WHERE step_record_id = $1 ORDER BY created_at',
-                  [step.id]
+                  [paso.id]
                 );
                 return {
-                  ...step,
-                  images: imagesResult.rows
+                  ...paso,
+                  images: resultadoImagenes.rows
                 };
               })
             );
 
             return {
-              ...computer,
-              steps: stepsWithImages
+              ...computador,
+              steps: pasosConImagenes
             };
           })
         );
 
         return {
-          ...student,
-          computers: computersWithSteps
+          ...estudiante,
+          computers: computadoresConPasos
         };
       })
     );
 
-    // Create workbook
-    const workbook = XLSX.utils.book_new();
+    // Crear libro
+    const libro = XLSX.utils.book_new();
 
-    // Create a summary sheet with all students
-    const summaryData = [
+    // Crear hoja de resumen con todos los estudiantes
+    const datosResumen = [
       ['Estudiante', 'Apellido', 'Fecha Registro', 'Total PCs', 'Total Pasos', 'Pasos Completados']
     ];
 
-    studentsWithFullData.forEach(student => {
-      const totalSteps = student.computers.reduce((acc, comp) => acc + comp.steps.length, 0);
-      const completedSteps = student.computers.reduce((acc, comp) => 
-        acc + comp.steps.filter(s => s.completed).length, 0);
+    estudiantesConDatosCompletos.forEach(estudiante => {
+      const totalPasos = estudiante.computers.reduce((acum, computador) => acum + computador.steps.length, 0);
+      const pasosCompletados = estudiante.computers.reduce((acum, computador) => 
+        acum + computador.steps.filter(paso => paso.completed).length, 0);
       
-      summaryData.push([
-        student.nombre,
-        student.apellido,
-        new Date(student.created_at).toLocaleDateString(),
-        student.computers.length,
-        totalSteps,
-        completedSteps
+      datosResumen.push([
+        estudiante.nombre,
+        estudiante.apellido,
+        new Date(estudiante.created_at).toLocaleDateString(),
+        estudiante.computers.length,
+        totalPasos,
+        pasosCompletados
       ]);
     });
 
-    const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+    const hojaResumen = XLSX.utils.aoa_to_sheet(datosResumen);
     
-    // Auto-fit column widths for summary sheet
-    const colWidths = summaryData[0].map((_, colIndex) => {
-      const maxWidth = summaryData.reduce((max, row) => {
-        const cellValue = row[colIndex] ? row[colIndex].toString() : '';
-        return Math.max(max, cellValue.length);
+    // Ajustar automáticamente anchos de columnas para hoja de resumen
+    const anchosColumnas = datosResumen[0].map((_, indiceColumna) => {
+      const anchoMaximo = datosResumen.reduce((maximo, fila) => {
+        const valorCelda = fila[indiceColumna] ? fila[indiceColumna].toString() : '';
+        return Math.max(maximo, valorCelda.length);
       }, 0);
-      return { wch: Math.min(maxWidth + 2, 50) }; // Limit max width to 50
+      return { wch: Math.min(anchoMaximo + 2, 50) }; // Limitar ancho máximo a 50
     });
-    summarySheet['!cols'] = colWidths;
+    hojaResumen['!cols'] = anchosColumnas;
     
-    XLSX.utils.book_append_sheet(workbook, summarySheet, 'Resumen');
+    XLSX.utils.book_append_sheet(libro, hojaResumen, 'Resumen');
 
-    // Create a sheet for each student with detailed data
-    studentsWithFullData.forEach(student => {
-      const studentData = [
-        ['Nombre', student.nombre],
-        ['Apellido', student.apellido],
-        ['Fecha Registro', new Date(student.created_at).toLocaleString()],
+    // Crear una hoja por cada estudiante con datos detallados
+    estudiantesConDatosCompletos.forEach(estudiante => {
+      const datosEstudiante = [
+        ['Nombre', estudiante.nombre],
+        ['Apellido', estudiante.apellido],
+        ['Fecha Registro', new Date(estudiante.created_at).toLocaleString()],
         [],
         ['Computadores'],
         ['Nombre PC', 'Fecha Creación', 'Total Pasos', 'Pasos Completados']
       ];
 
-      student.computers.forEach(computer => {
-        const completedCount = computer.steps.filter(s => s.completed).length;
-        studentData.push([
-          computer.nombre_pc,
-          new Date(computer.created_at).toLocaleDateString(),
-          computer.steps.length,
-          completedCount
+      estudiante.computers.forEach(computador => {
+        const cuentaCompletados = computador.steps.filter(paso => paso.completed).length;
+        datosEstudiante.push([
+          computador.nombre_pc,
+          new Date(computador.created_at).toLocaleDateString(),
+          computador.steps.length,
+          cuentaCompletados
         ]);
 
-        // Add steps for this computer
-        studentData.push([]);
-        studentData.push([`Pasos - ${computer.nombre_pc}`]);
-        studentData.push(['Paso', 'Completado', 'Notas', 'Imágenes']);
+        // Agregar pasos para este computador
+        datosEstudiante.push([]);
+        datosEstudiante.push([`Pasos - ${computador.nombre_pc}`]);
+        datosEstudiante.push(['Paso', 'Completado', 'Notas', 'Imágenes']);
 
-        computer.steps.forEach(step => {
-          const imageNames = step.images.map(img => img.image_name).join(', ');
-          studentData.push([
-            step.step_id,
-            step.completed ? 'Sí' : 'No',
-            step.notes || '',
-            imageNames
+        computador.steps.forEach(paso => {
+          const nombresImagenes = paso.images.map(imagen => imagen.image_name).join(', ');
+          datosEstudiante.push([
+            paso.step_id,
+            paso.completed ? 'Sí' : 'No',
+            paso.notes || '',
+            nombresImagenes
           ]);
         });
-        studentData.push([]);
+        datosEstudiante.push([]);
       });
 
-      const studentSheet = XLSX.utils.aoa_to_sheet(studentData);
+      const hojaEstudiante = XLSX.utils.aoa_to_sheet(datosEstudiante);
       
-      // Auto-fit column widths for student sheet
-      const studentColWidths = studentData[0].map((_, colIndex) => {
-        const maxWidth = studentData.reduce((max, row) => {
-          const cellValue = row[colIndex] ? row[colIndex].toString() : '';
-          return Math.max(max, cellValue.length);
+      // Ajustar automáticamente anchos de columnas para hoja de estudiante
+      const anchosColumnasEstudiante = datosEstudiante[0].map((_, indiceColumna) => {
+        const anchoMaximo = datosEstudiante.reduce((maximo, fila) => {
+          const valorCelda = fila[indiceColumna] ? fila[indiceColumna].toString() : '';
+          return Math.max(maximo, valorCelda.length);
         }, 0);
-        return { wch: Math.min(maxWidth + 2, 50) }; // Limit max width to 50
+        return { wch: Math.min(anchoMaximo + 2, 50) }; // Limitar ancho máximo a 50
       });
-      studentSheet['!cols'] = studentColWidths;
+      hojaEstudiante['!cols'] = anchosColumnasEstudiante;
       
-      const sheetName = `${student.nombre}_${student.apellido}`.substring(0, 31).replace(/[\\/?*[\]]/g, '');
-      XLSX.utils.book_append_sheet(workbook, studentSheet, sheetName);
+      const nombreHoja = `${estudiante.nombre}_${estudiante.apellido}`.substring(0, 31).replace(/[\\/?*[\]]/g, '');
+      XLSX.utils.book_append_sheet(libro, hojaEstudiante, nombreHoja);
     });
 
-    // Generate buffer
-    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    // Generar buffer
+    const buffer = XLSX.write(libro, { type: 'buffer', bookType: 'xlsx' });
 
-    // Send file
+    // Enviar archivo
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=clinica_del_pc_export.xlsx');
     res.send(buffer);
 
   } catch (error) {
-    console.error('Error exporting to Excel:', error);
+    console.error('Error al exportar a Excel:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Export to Word for student
-app.post('/api/export-word', uploadMemory.array('images'), async (req, res) => {
+// Exportar a Word para el estudiante
+aplicacion.post('/api/export-word', subidaMemoria.array('images'), async (req, res) => {
   try {
-    const userInfo = req.body.userInfo;
-    const completedSteps = req.body.completedSteps;
-    const stepNotes = req.body.stepNotes;
-    const imagesInfo = req.body.imagesInfo;
-    const steps = req.body.steps;
-    const imageMapping = req.body.imageMapping;
-    const uploadedFiles = req.files;
+    const infoUsuario = req.body.userInfo;
+    const pasosCompletados = req.body.completedSteps;
+    const notasPasos = req.body.stepNotes;
+    const infoImagenes = req.body.imagesInfo;
+    const pasos = req.body.steps;
+    const mapeoImagenes = req.body.imageMapping;
+    const archivosSubidos = req.files;
     
-    const parsedUserInfo = JSON.parse(userInfo);
-    const parsedCompletedSteps = JSON.parse(completedSteps);
-    const parsedStepNotes = JSON.parse(stepNotes);
-    const parsedImagesInfo = JSON.parse(imagesInfo);
-    const parsedSteps = JSON.parse(steps);
-    const parsedImageMapping = JSON.parse(imageMapping);
+    const infoUsuarioParseada = JSON.parse(infoUsuario);
+    const pasosCompletadosParseados = JSON.parse(pasosCompletados);
+    const notasPasosParseadas = JSON.parse(notasPasos);
+    const infoImagenesParseada = JSON.parse(infoImagenes);
+    const pasosParseados = JSON.parse(pasos);
+    const mapeoImagenesParseado = JSON.parse(mapeoImagenes);
 
-    // Create array of uploaded files by index
-    const fileArray = uploadedFiles || [];
+    // Crear arreglo de archivos subidos por índice
+    const arregloArchivos = archivosSubidos || [];
 
-    // Helper function to get image buffer by index
-    const getImageBuffer = (index) => {
-      if (fileArray[index] && fileArray[index].buffer) {
-        return fileArray[index].buffer;
+    // Función auxiliar para obtener el buffer de imagen por índice
+    const obtenerBufferImagen = (indice) => {
+      if (arregloArchivos[indice] && arregloArchivos[indice].buffer) {
+        return arregloArchivos[indice].buffer;
       }
       return null;
     };
 
-    // Build document children
-    const documentChildren = [
-      // Title
+    // Construir elementos del documento
+    const elementosDocumento = [
+      // Título
       new Paragraph({
         text: "Clínica del PC - Reporte de Mantenimiento",
         heading: HeadingLevel.HEADING_1,
@@ -537,7 +540,7 @@ app.post('/api/export-word', uploadMemory.array('images'), async (req, res) => {
         spacing: { after: 400 }
       }),
       
-      // Student Info
+      // Información del estudiante
       new Paragraph({
         text: "Información del Estudiante",
         heading: HeadingLevel.HEADING_2,
@@ -546,19 +549,19 @@ app.post('/api/export-word', uploadMemory.array('images'), async (req, res) => {
       new Paragraph({
         children: [
           new TextRun({ text: "Nombre: ", bold: true }),
-          new TextRun(parsedUserInfo.nombre)
+          new TextRun(infoUsuarioParseada.nombre)
         ]
       }),
       new Paragraph({
         children: [
           new TextRun({ text: "Apellido: ", bold: true }),
-          new TextRun(parsedUserInfo.apellido)
+          new TextRun(infoUsuarioParseada.apellido)
         ]
       }),
       new Paragraph({
         children: [
           new TextRun({ text: "Computador: ", bold: true }),
-          new TextRun(parsedUserInfo.nombrePC)
+          new TextRun(infoUsuarioParseada.nombrePC)
         ]
       }),
       new Paragraph({
@@ -568,7 +571,7 @@ app.post('/api/export-word', uploadMemory.array('images'), async (req, res) => {
         ]
       }),
       
-      // Steps
+      // Pasos
       new Paragraph({
         text: "Pasos de Mantenimiento",
         heading: HeadingLevel.HEADING_2,
@@ -576,26 +579,26 @@ app.post('/api/export-word', uploadMemory.array('images'), async (req, res) => {
       })
     ];
 
-    // Process each step
-    for (const step of parsedSteps) {
-      const isCompleted = parsedCompletedSteps[step.id] || false;
-      const notes = parsedStepNotes[step.id] || '';
-      const images = parsedImagesInfo[step.id] || [];
-      const imageIndices = parsedImageMapping[step.id] || [];
+    // Procesar cada paso
+    for (const paso of pasosParseados) {
+      const estaCompletado = pasosCompletadosParseados[paso.id] || false;
+      const notas = notasPasosParseadas[paso.id] || '';
+      const imagenes = infoImagenesParseada[paso.id] || [];
+      const indicesImagenes = mapeoImagenesParseado[paso.id] || [];
 
-      // Step title and status
-      documentChildren.push(
+      // Título del paso y estado
+      elementosDocumento.push(
         new Paragraph({
           children: [
-            new TextRun({ text: `Paso ${step.id}: ${step.titulo}`, bold: true, size: 28 }),
-            new TextRun({ text: isCompleted ? " ✓" : " ○", color: isCompleted ? "008000" : "FF0000", size: 28 })
+            new TextRun({ text: `Paso ${paso.id}: ${paso.titulo}`, bold: true, size: 28 }),
+            new TextRun({ text: estaCompletado ? " ✓" : " ○", color: estaCompletado ? "008000" : "FF0000", size: 28 })
           ],
           spacing: { before: 300, after: 200 }
         })
       );
 
-      // Instructions
-      documentChildren.push(
+      // Instrucciones
+      elementosDocumento.push(
         new Paragraph({
           text: "Instrucciones:",
           bold: true,
@@ -603,70 +606,70 @@ app.post('/api/export-word', uploadMemory.array('images'), async (req, res) => {
         })
       );
       
-      step.instrucciones.forEach(instruction => {
-        documentChildren.push(
+      paso.instrucciones.forEach(instruccion => {
+        elementosDocumento.push(
           new Paragraph({
-            text: `• ${instruction}`,
+            text: `• ${instruccion}`,
             bullet: { level: 0 },
             spacing: { left: 720, hanging: 360 }
           })
         );
       });
 
-      // Evidence required
-      documentChildren.push(
+      // Evidencia requerida
+      elementosDocumento.push(
         new Paragraph({
           children: [
             new TextRun({ text: "Evidencia requerida: ", bold: true }),
-            new TextRun(step.evidencia)
+            new TextRun(paso.evidencia)
           ],
           spacing: { before: 100 }
         })
       );
 
-      // Status
-      documentChildren.push(
+      // Estado
+      elementosDocumento.push(
         new Paragraph({
           children: [
             new TextRun({ text: "Estado: ", bold: true }),
-            new TextRun(isCompleted ? "Completado" : "Pendiente"),
-            new TextRun({ text: isCompleted ? " ✓" : " ○", color: isCompleted ? "008000" : "FF0000" })
+            new TextRun(estaCompletado ? "Completado" : "Pendiente"),
+            new TextRun({ text: estaCompletado ? " ✓" : " ○", color: estaCompletado ? "008000" : "FF0000" })
           ],
           spacing: { before: 100 }
         })
       );
 
-      // Notes
-      if (notes) {
-        documentChildren.push(
+      // Notas
+      if (notas) {
+        elementosDocumento.push(
           new Paragraph({
             children: [
               new TextRun({ text: "Notas: ", bold: true }),
-              new TextRun(notes)
+              new TextRun(notas)
             ],
             spacing: { before: 100 }
           })
         );
       }
 
-      // Images
-      if (imageIndices.length > 0) {
-        documentChildren.push(
+      // Imágenes
+      if (indicesImagenes.length > 0) {
+        elementosDocumento.push(
           new Paragraph({
-            text: `Imágenes (${imageIndices.length}):`,
+            text: `Imágenes (${indicesImagenes.length}):`,
             bold: true,
             spacing: { before: 100 }
           })
         );
 
-        for (const index of imageIndices) {
-          const imageBuffer = getImageBuffer(index);
-          if (imageBuffer) {
-            documentChildren.push(
+        for (const indice of indicesImagenes) {
+          const bufferImagen = obtenerBufferImagen(indice);
+          if (bufferImagen) {
+            elementosDocumento.push(
               new Paragraph({
                 children: [
                   new ImageRun({
-                    data: imageBuffer,
+                    data: bufferImagen,
                     transformation: { width: 400, height: 300 }
                   })
                 ],
@@ -674,7 +677,7 @@ app.post('/api/export-word', uploadMemory.array('images'), async (req, res) => {
               })
             );
           } else {
-            documentChildren.push(
+            elementosDocumento.push(
               new Paragraph({
                 text: `• Imagen no disponible`,
                 italics: true,
@@ -685,8 +688,8 @@ app.post('/api/export-word', uploadMemory.array('images'), async (req, res) => {
         }
       }
 
-      // Separator
-      documentChildren.push(
+      // Separador
+      elementosDocumento.push(
         new Paragraph({
           text: "─".repeat(80),
           spacing: { before: 300, after: 100 }
@@ -694,39 +697,39 @@ app.post('/api/export-word', uploadMemory.array('images'), async (req, res) => {
       );
     }
 
-    // Create document
-    const doc = new Document({
+    // Crear documento
+    const documento = new Document({
       sections: [{
         properties: {},
-        children: documentChildren
+        children: elementosDocumento
       }]
     });
 
-    // Generate buffer
-    const buffer = await Packer.toBuffer(doc);
+    // Generar buffer
+    const buffer = await Packer.toBuffer(documento);
 
-    // Send file
+    // Enviar archivo
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-    res.setHeader('Content-Disposition', `attachment; filename=reporte_${parsedUserInfo.nombre}_${parsedUserInfo.apellido}_${parsedUserInfo.nombrePC}.docx`);
+    res.setHeader('Content-Disposition', `attachment; filename=reporte_${infoUsuarioParseada.nombre}_${infoUsuarioParseada.apellido}_${infoUsuarioParseada.nombrePC}.docx`);
     res.send(buffer);
 
   } catch (error) {
-    console.error('Error exporting to Word:', error);
+    console.error('Error al exportar a Word:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ success: true, message: 'Server is running' });
+// Verificación de salud
+aplicacion.get('/api/health', (req, res) => {
+  res.json({ success: true, message: 'El servidor está ejecutándose' });
 });
 
-// Initialize database and start server
-initDB().then(() => {
-  app.listen(port, '0.0.0.0', () => {
-    console.log(`Server running on http://0.0.0.0:${port}`);
-    console.log(`Server running on http://localhost:${port}`);
+// Inicializar base de datos y arrancar servidor
+inicializarBaseDeDatos().then(() => {
+  aplicacion.listen(puerto, '0.0.0.0', () => {
+    console.log(`Servidor ejecutándose en http://0.0.0.0:${puerto}`);
+    console.log(`Servidor ejecutándose en http://localhost:${puerto}`);
   });
 }).catch(error => {
-  console.error('Failed to start server:', error);
+  console.error('Error al iniciar el servidor:', error);
 });
