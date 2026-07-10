@@ -728,18 +728,22 @@ aplicacion.get('/api/health', (req, res) => {
 inicializarBaseDeDatos().then(() => {
   aplicacion.listen(puerto, '0.0.0.0', () => {
     const interfaces = os.networkInterfaces();
-    let ipRed = '0.0.0.0';
+    const ipsRed = [];
     for (const nombre in interfaces) {
       for (const detalle of interfaces[nombre]) {
         if (detalle.family === 'IPv4' && !detalle.internal) {
-          ipRed = detalle.address;
-          break;
+          ipsRed.push(detalle.address);
         }
       }
-      if (ipRed !== '0.0.0.0') break;
     }
     console.log(`Servidor ejecutándose en http://localhost:${puerto}`);
-    console.log(`Servidor ejecutándose en http://${ipRed}:${puerto}`);
+    if (ipsRed.length === 0) {
+      console.log(`Servidor ejecutándose en http://0.0.0.0:${puerto}`);
+    } else {
+      ipsRed.forEach(ip => {
+        console.log(`Servidor ejecutándose en http://${ip}:${puerto}`);
+      });
+    }
   });
 }).catch(error => {
   console.error('Error al iniciar el servidor:', error);
