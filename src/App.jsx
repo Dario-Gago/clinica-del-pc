@@ -312,7 +312,7 @@ function App() {
       <div className="app">
         <header className="header">
           <h1>🏥 Clínica del PC</h1>
-          <p className="subtitle">Guía de mantenimiento de hardware y software</p>
+          <p className="subtitle">Guía de mantenimiento de software</p>
         </header>
 
         <main className="main-content">
@@ -372,7 +372,7 @@ function App() {
     <div className="app">
       <header className="header">
         <h1>🏥 Clínica del PC</h1>
-        <p className="subtitle">Guía de mantenimiento de hardware y software</p>
+        <p className="subtitle">Guía de mantenimiento de software</p>
         
         <div className="reminder-banner">
           ⚠️ No te olvides de guardar en la base de datos
