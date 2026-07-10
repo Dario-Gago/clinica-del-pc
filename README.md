@@ -100,6 +100,8 @@ El servidor se ejecutará en `http://{IP de red local}:3001` y `http://localhost
 
 ### 🌐 Acceder desde otros dispositivos en la red local
 
+No se necesita internet 🌐, solo que todos los dispositivos estén conectados a la misma red WiFi o cable (puede ser un punto de acceso de celular o un router sin salida a internet).
+
 Una vez iniciado el backend, inicia Vite de forma que escuche en la red y apunte al backend con la variable `VITE_API_URL`:
 
 ```bash
