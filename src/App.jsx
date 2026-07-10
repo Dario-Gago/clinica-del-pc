@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import Swal from 'sweetalert2'
-import { steps } from './steps'
+import { pasos } from './pasos'
 
 function App() {
   const [completedSteps, setCompletedSteps] = useState({})
@@ -107,7 +107,7 @@ function App() {
   }
 
   const completedCount = Object.values(completedSteps).filter(Boolean).length
-  const progress = (completedCount / steps.length) * 100
+  const progress = (completedCount / pasos.length) * 100
 
   const saveToDatabase = async () => {
     try {
@@ -388,20 +388,20 @@ function App() {
           <div className="progress-bar">
             <div className="progress-fill" style={{ width: `${progress}%` }}></div>
           </div>
-          <p className="progress-text">{completedCount} de {steps.length} pasos completados ({Math.round(progress)}%)</p>
+          <p className="progress-text">{completedCount} de {pasos.length} pasos completados ({Math.round(progress)}%)</p>
         </div>
       </header>
 
       <main className="main-content">
         <div className="steps-container">
-          {steps.map((step) => (
+          {pasos.map((step) => (
             <div 
               key={step.id} 
               className={`step-card ${completedSteps[step.id] ? 'completed' : ''}`}
             >
               <div className="step-header">
                 <div className="step-number">{step.id}</div>
-                <h2>{step.title}</h2>
+                <h2>{step.titulo}</h2>
                 <button 
                   className={`check-btn ${completedSteps[step.id] ? 'checked' : ''}`}
                   onClick={() => toggleStep(step.id)}
@@ -412,13 +412,13 @@ function App() {
               
               <div className="step-content">
                 <ul className="instructions">
-                  {step.instructions.map((instruction, index) => (
+                  {step.instrucciones.map((instruction, index) => (
                     <li key={index}>{instruction}</li>
                   ))}
                 </ul>
                 
                 <div className="evidence">
-                  <strong>Evidencia:</strong> {step.evidence}
+                  <strong>Evidencia:</strong> {step.evidencia}
                 </div>
 
                 <div className="notes-section">

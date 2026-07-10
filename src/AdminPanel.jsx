@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Swal from 'sweetalert2'
-import { steps } from './steps'
+import { pasos } from './pasos'
 
 const AdminPanel = () => {
   const navigate = useNavigate()
@@ -229,7 +229,7 @@ const AdminPanel = () => {
                             ) : (
                               <div className="steps-list">
                                 {computer.steps.map((step) => {
-                                  const stepData = steps.find(s => s.id === step.step_id)
+                                  const stepData = pasos.find(s => s.id === step.step_id)
                                   return (
                                     <div key={step.id} className={`step-item ${step.completed ? 'completed' : ''}`}>
                                       <div className="step-header">
@@ -237,7 +237,7 @@ const AdminPanel = () => {
                                           <span className="step-badge">{step.step_id}</span>
                                         </div>
                                         <div className="step-title">
-                                          {stepData ? stepData.title : `Paso ${step.step_id}`}
+                                          {stepData ? stepData.titulo : `Paso ${step.step_id}`}
                                         </div>
                                         <span className={`step-status ${step.completed ? 'completed' : 'pending'}`}>
                                           {step.completed ? '✓ Completado' : '○ Pendiente'}

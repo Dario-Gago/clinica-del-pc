@@ -587,7 +587,7 @@ app.post('/api/export-word', uploadMemory.array('images'), async (req, res) => {
       documentChildren.push(
         new Paragraph({
           children: [
-            new TextRun({ text: `Paso ${step.id}: ${step.title}`, bold: true, size: 28 }),
+            new TextRun({ text: `Paso ${step.id}: ${step.titulo}`, bold: true, size: 28 }),
             new TextRun({ text: isCompleted ? " ✓" : " ○", color: isCompleted ? "008000" : "FF0000", size: 28 })
           ],
           spacing: { before: 300, after: 200 }
@@ -603,7 +603,7 @@ app.post('/api/export-word', uploadMemory.array('images'), async (req, res) => {
         })
       );
       
-      step.instructions.forEach(instruction => {
+      step.instrucciones.forEach(instruction => {
         documentChildren.push(
           new Paragraph({
             text: `• ${instruction}`,
@@ -618,7 +618,7 @@ app.post('/api/export-word', uploadMemory.array('images'), async (req, res) => {
         new Paragraph({
           children: [
             new TextRun({ text: "Evidencia requerida: ", bold: true }),
-            new TextRun(step.evidence)
+            new TextRun(step.evidencia)
           ],
           spacing: { before: 100 }
         })
