@@ -128,6 +128,18 @@ Por ejemplo: `http://192.168.100.126:5173`
 
 > ⚠️ Sin `--host` Vite solo escucha en `localhost`, por lo que otros dispositivos no podrán conectarse.
 
+### 🧑‍💼 Panel de administrador
+
+Para acceder al panel de administrador, agrega `/admin` al final de la URL del frontend:
+
+```
+http://{IP de tu computadora}:5173/admin
+```
+
+Por ejemplo: `http://192.168.100.126:5173/admin`
+
+Desde ahí puedes ver todos los datos guardados y exportarlos a Excel.
+
 ### 🛠️ Construir para producción
 
 ```bash
