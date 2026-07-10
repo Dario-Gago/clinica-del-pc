@@ -5,36 +5,36 @@ import { pasos } from './pasos'
 
 const AdminPanel = () => {
   const navigate = useNavigate()
-  const [data, setData] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [expandedStudent, setExpandedStudent] = useState(null)
-  const [expandedComputer, setExpandedComputer] = useState(null)
+  const [datos, setDatos] = useState([])
+  const [cargando, setCargando] = useState(true)
+  const [estudianteExpandido, setEstudianteExpandido] = useState(null)
+  const [computadorExpandido, setComputadorExpandido] = useState(null)
 
   useEffect(() => {
-    fetchData()
+    obtenerDatos()
   }, [])
 
-  const fetchData = async () => {
+  const obtenerDatos = async () => {
     try {
-      const serverUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      const urlServidor = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
         ? 'http://localhost:3001'
         : `http://${window.location.hostname}:3001`
 
-      const response = await fetch(`${serverUrl}/api/admin/all-data`)
-      const result = await response.json()
+      const respuesta = await fetch(`${urlServidor}/api/admin/all-data`)
+      const resultado = await respuesta.json()
 
-      if (result.success) {
-        setData(result.data)
+      if (resultado.success) {
+        setDatos(resultado.data)
       } else {
         Swal.fire({
           icon: 'error',
           title: 'Error',
-          text: 'Error al cargar datos: ' + result.error,
+          text: 'Error al cargar datos: ' + resultado.error,
           confirmButtonColor: '#1e40af'
         })
       }
     } catch (error) {
-      console.error('Error fetching data:', error)
+      console.error('Error al obtener datos:', error)
       Swal.fire({
         icon: 'error',
         title: 'Error de conexión',
@@ -42,20 +42,20 @@ const AdminPanel = () => {
         confirmButtonColor: '#1e40af'
       })
     } finally {
-      setLoading(false)
+      setCargando(false)
     }
   }
 
-  const getImageUrl = (imageName) => {
-    const serverUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  const obtenerUrlImagen = (nombreImagen) => {
+    const urlServidor = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
       ? 'http://localhost:3001'
       : `http://${window.location.hostname}:3001`
-    return `${serverUrl}/uploads/${imageName}`
+    return `${urlServidor}/uploads/${nombreImagen}`
   }
 
-  const handleExportExcel = async () => {
+  const manejarExportarExcel = async () => {
     try {
-      const serverUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      const urlServidor = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
         ? 'http://localhost:3001'
         : `http://${window.location.hostname}:3001`
 
@@ -68,21 +68,21 @@ const AdminPanel = () => {
         }
       })
 
-      const response = await fetch(`${serverUrl}/api/admin/export-excel`)
+      const respuesta = await fetch(`${urlServidor}/api/admin/export-excel`)
       
-      if (!response.ok) {
+      if (!respuesta.ok) {
         throw new Error('Error al generar el archivo Excel')
       }
 
-      const blob = await response.blob()
+      const blob = await respuesta.blob()
       const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'clinica_del_pc_export.xlsx'
-      document.body.appendChild(a)
-      a.click()
+      const enlace = document.createElement('a')
+      enlace.href = url
+      enlace.download = 'clinica_del_pc_export.xlsx'
+      document.body.appendChild(enlace)
+      enlace.click()
       window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
+      document.body.removeChild(enlace)
 
       Swal.fire({
         icon: 'success',
@@ -91,7 +91,7 @@ const AdminPanel = () => {
         confirmButtonColor: '#22c55e'
       })
     } catch (error) {
-      console.error('Error exporting to Excel:', error)
+      console.error('Error al exportar a Excel:', error)
       Swal.fire({
         icon: 'error',
         title: 'Error',
@@ -101,22 +101,22 @@ const AdminPanel = () => {
     }
   }
 
-  const toggleStudent = (studentId) => {
-    setExpandedStudent(expandedStudent === studentId ? null : studentId)
-    setExpandedComputer(null)
+  const alternarEstudiante = (idEstudiante) => {
+    setEstudianteExpandido(estudianteExpandido === idEstudiante ? null : idEstudiante)
+    setComputadorExpandido(null)
   }
 
-  const toggleComputer = (computerId) => {
-    setExpandedComputer(expandedComputer === computerId ? null : computerId)
+  const alternarComputador = (idComputador) => {
+    setComputadorExpandido(computadorExpandido === idComputador ? null : idComputador)
   }
 
-  if (loading) {
+  if (cargando) {
     return (
       <div className="admin-panel">
         <div className="admin-header">
           <h1>🔧 Panel de Administrador</h1>
           <div className="header-actions">
-            <button onClick={handleExportExcel} className="export-btn">
+            <button onClick={manejarExportarExcel} className="export-btn">
               📊 Exportar Excel
             </button>
             <button onClick={() => navigate('/')} className="back-btn">← Volver</button>
@@ -131,21 +131,21 @@ const AdminPanel = () => {
   }
 
   // Calcular estadísticas
-  const totalStudents = data.length
-  const totalComputers = data.reduce((acc, student) => acc + student.computers.length, 0)
-  const totalSteps = data.reduce((acc, student) => 
-    acc + student.computers.reduce((acc2, computer) => 
-      acc2 + computer.steps.length, 0), 0)
-  const completedSteps = data.reduce((acc, student) => 
-    acc + student.computers.reduce((acc2, computer) => 
-      acc2 + computer.steps.filter(s => s.completed).length, 0), 0)
+  const totalEstudiantes = datos.length
+  const totalComputadores = datos.reduce((acc, estudiante) => acc + estudiante.computers.length, 0)
+  const totalPasos = datos.reduce((acc, estudiante) => 
+    acc + estudiante.computers.reduce((acc2, computador) => 
+      acc2 + computador.steps.length, 0), 0)
+  const pasosCompletados = datos.reduce((acc, estudiante) => 
+    acc + estudiante.computers.reduce((acc2, computador) => 
+      acc2 + computador.steps.filter(s => s.completed).length, 0), 0)
 
   return (
     <div className="admin-panel">
       <div className="admin-header">
         <h1>🔧 Panel de Administrador</h1>
         <div className="header-actions">
-          <button onClick={handleExportExcel} className="export-btn">
+          <button onClick={manejarExportarExcel} className="export-btn">
             📊 Exportar Excel
           </button>
           <button onClick={() => navigate('/')} className="back-btn">← Volver</button>
@@ -156,114 +156,114 @@ const AdminPanel = () => {
         <div className="stat-card">
           <div className="stat-icon">👥</div>
           <div className="stat-info">
-            <div className="stat-number">{totalStudents}</div>
+            <div className="stat-number">{totalEstudiantes}</div>
             <div className="stat-label">Estudiantes</div>
           </div>
         </div>
         <div className="stat-card">
           <div className="stat-icon">🖥️</div>
           <div className="stat-info">
-            <div className="stat-number">{totalComputers}</div>
+            <div className="stat-number">{totalComputadores}</div>
             <div className="stat-label">Computadores</div>
           </div>
         </div>
         <div className="stat-card">
           <div className="stat-icon">✓</div>
           <div className="stat-info">
-            <div className="stat-number">{completedSteps}/{totalSteps}</div>
+            <div className="stat-number">{pasosCompletados}/{totalPasos}</div>
             <div className="stat-label">Pasos Completados</div>
           </div>
         </div>
       </div>
 
       <div className="admin-content">
-        {data.length === 0 ? (
+        {datos.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">📭</div>
             <p>No hay datos registrados</p>
           </div>
         ) : (
-          data.map((student) => (
-            <div key={student.id} className="student-card">
-              <div className="student-header" onClick={() => toggleStudent(student.id)}>
+          datos.map((estudiante) => (
+            <div key={estudiante.id} className="student-card">
+              <div className="student-header" onClick={() => alternarEstudiante(estudiante.id)}>
                 <div className="student-avatar">
-                  {student.nombre.charAt(0)}{student.apellido.charAt(0)}
+                  {estudiante.nombre.charAt(0)}{estudiante.apellido.charAt(0)}
                 </div>
                 <div className="student-info-header">
-                  <h2>{student.nombre} {student.apellido}</h2>
-                  <span className="student-computers-count">{student.computers.length} computador(es)</span>
+                  <h2>{estudiante.nombre} {estudiante.apellido}</h2>
+                  <span className="student-computers-count">{estudiante.computers.length} computador(es)</span>
                 </div>
-                <span className="toggle-icon">{expandedStudent === student.id ? '▼' : '▶'}</span>
+                <span className="toggle-icon">{estudianteExpandido === estudiante.id ? '▼' : '▶'}</span>
               </div>
 
-              {expandedStudent === student.id && (
+              {estudianteExpandido === estudiante.id && (
                 <div className="student-details">
-                  <p className="student-info">📅 Registrado: {new Date(student.created_at).toLocaleDateString()}</p>
+                  <p className="student-info">📅 Registrado: {new Date(estudiante.created_at).toLocaleDateString()}</p>
                   
-                  {student.computers.length === 0 ? (
+                  {estudiante.computers.length === 0 ? (
                     <div className="empty-state small">
                       <p>Sin computadores registrados</p>
                     </div>
                   ) : (
-                    student.computers.map((computer) => (
-                      <div key={computer.id} className="computer-card">
-                        <div className="computer-header" onClick={() => toggleComputer(computer.id)}>
+                    estudiante.computers.map((computador) => (
+                      <div key={computador.id} className="computer-card">
+                        <div className="computer-header" onClick={() => alternarComputador(computador.id)}>
                           <div className="computer-icon">🖥️</div>
                           <div className="computer-info-header">
-                            <h3>{computer.nombre_pc}</h3>
+                            <h3>{computador.nombre_pc}</h3>
                             <span className="computer-steps-count">
-                              {computer.steps.filter(s => s.completed).length}/{computer.steps.length} pasos completados
+                              {computador.steps.filter(s => s.completed).length}/{computador.steps.length} pasos completados
                             </span>
                           </div>
-                          <span className="toggle-icon">{expandedComputer === computer.id ? '▼' : '▶'}</span>
+                          <span className="toggle-icon">{computadorExpandido === computador.id ? '▼' : '▶'}</span>
                         </div>
 
-                        {expandedComputer === computer.id && (
+                        {computadorExpandido === computador.id && (
                           <div className="computer-details">
-                            <p className="computer-info">📅 Creado: {new Date(computer.created_at).toLocaleDateString()}</p>
+                            <p className="computer-info">📅 Creado: {new Date(computador.created_at).toLocaleDateString()}</p>
                             
-                            {computer.steps.length === 0 ? (
+                            {computador.steps.length === 0 ? (
                               <div className="empty-state small">
                                 <p>Sin pasos registrados</p>
                               </div>
                             ) : (
                               <div className="steps-list">
-                                {computer.steps.map((step) => {
-                                  const stepData = pasos.find(s => s.id === step.step_id)
+                                {computador.steps.map((paso) => {
+                                  const datosPaso = pasos.find(s => s.id === paso.step_id)
                                   return (
-                                    <div key={step.id} className={`step-item ${step.completed ? 'completed' : ''}`}>
+                                    <div key={paso.id} className={`step-item ${paso.completed ? 'completed' : ''}`}>
                                       <div className="step-header">
                                         <div className="step-number">
-                                          <span className="step-badge">{step.step_id}</span>
+                                          <span className="step-badge">{paso.step_id}</span>
                                         </div>
                                         <div className="step-title">
-                                          {stepData ? stepData.titulo : `Paso ${step.step_id}`}
+                                          {datosPaso ? datosPaso.titulo : `Paso ${paso.step_id}`}
                                         </div>
-                                        <span className={`step-status ${step.completed ? 'completed' : 'pending'}`}>
-                                          {step.completed ? '✓ Completado' : '○ Pendiente'}
+                                        <span className={`step-status ${paso.completed ? 'completed' : 'pending'}`}>
+                                          {paso.completed ? '✓ Completado' : '○ Pendiente'}
                                         </span>
                                       </div>
                                     
-                                      {step.notes && (
+                                      {paso.notes && (
                                         <div className="step-notes">
                                           <span className="notes-icon">📝</span>
-                                          <span>{step.notes}</span>
+                                          <span>{paso.notes}</span>
                                         </div>
                                       )}
                                       
-                                      {step.images && step.images.length > 0 && (
+                                      {paso.images && paso.images.length > 0 && (
                                         <div className="step-images">
                                           <div className="images-header">
                                             <span className="images-icon">📷</span>
-                                            <span>{step.images.length} imagen(es)</span>
+                                            <span>{paso.images.length} imagen(es)</span>
                                           </div>
                                           <div className="images-grid">
-                                            {step.images.map((image) => (
-                                              <div key={image.id} className="image-item">
+                                            {paso.images.map((imagen) => (
+                                              <div key={imagen.id} className="image-item">
                                                 <img 
-                                                  src={getImageUrl(image.image_name)} 
-                                                  alt={image.image_name}
-                                                  onClick={() => window.open(getImageUrl(image.image_name), '_blank')}
+                                                  src={obtenerUrlImagen(imagen.image_name)} 
+                                                  alt={imagen.image_name}
+                                                  onClick={() => window.open(obtenerUrlImagen(imagen.image_name), '_blank')}
                                                 />
                                               </div>
                                             ))}
