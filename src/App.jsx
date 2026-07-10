@@ -3,34 +3,34 @@ import Swal from 'sweetalert2'
 import { pasos } from './pasos'
 
 function App() {
-  const [completedSteps, setCompletedSteps] = useState({})
-  const [currentStep, setCurrentStep] = useState(1)
-  const [userInfo, setUserInfo] = useState({
+  const [pasosCompletados, setPasosCompletados] = useState({})
+  const [pasoActual, setPasoActual] = useState(1)
+  const [infoUsuario, setInfoUsuario] = useState({
     nombre: '',
     apellido: '',
     nombrePC: ''
   })
-  const [showForm, setShowForm] = useState(true)
-  const [stepNotes, setStepNotes] = useState({})
-  const [stepImages, setStepImages] = useState({})
-  const [imageFiles, setImageFiles] = useState({})
+  const [mostrarFormulario, setMostrarFormulario] = useState(true)
+  const [notasPasos, setNotasPasos] = useState({})
+  const [imagenesPasos, setImagenesPasos] = useState({})
+  const [archivosImagen, setArchivosImagen] = useState({})
 
   // Cargar datos desde localStorage al montar
   useEffect(() => {
-    const savedData = localStorage.getItem('clinicaDelPC')
-    console.log('Datos en localStorage:', savedData)
-    if (savedData) {
+    const datosGuardados = localStorage.getItem('clinicaDelPC')
+    console.log('Datos en localStorage:', datosGuardados)
+    if (datosGuardados) {
       try {
-        const parsed = JSON.parse(savedData)
-        console.log('Datos parseados:', parsed)
-        if (parsed.userInfo) {
-          console.log('Setting userInfo:', parsed.userInfo)
-          setUserInfo(parsed.userInfo)
+        const parseado = JSON.parse(datosGuardados)
+        console.log('Datos parseados:', parseado)
+        if (parseado.userInfo) {
+          console.log('Configurando infoUsuario:', parseado.userInfo)
+          setInfoUsuario(parseado.userInfo)
           // No ocultamos el formulario, solo autocompletamos los campos
         }
-        if (parsed.showForm !== undefined) setShowForm(parsed.showForm)
-        if (parsed.completedSteps) setCompletedSteps(parsed.completedSteps)
-        if (parsed.stepNotes) setStepNotes(parsed.stepNotes)
+        if (parseado.showForm !== undefined) setMostrarFormulario(parseado.showForm)
+        if (parseado.completedSteps) setPasosCompletados(parseado.completedSteps)
+        if (parseado.stepNotes) setNotasPasos(parseado.stepNotes)
         // No cargamos imágenes desde localStorage ya que ahora se guardan en el servidor
       } catch (error) {
         console.error('Error al cargar datos:', error)
@@ -40,115 +40,115 @@ function App() {
 
   // Guardar datos en localStorage cuando cambien (sin imágenes)
   useEffect(() => {
-    // No guardar si userInfo está vacío (estado inicial)
-    if (!userInfo.nombre && !userInfo.apellido && !userInfo.nombrePC) {
+    // No guardar si infoUsuario está vacío (estado inicial)
+    if (!infoUsuario.nombre && !infoUsuario.apellido && !infoUsuario.nombrePC) {
       return
     }
     
-    const dataToSave = {
-      userInfo,
-      showForm,
-      completedSteps,
-      stepNotes
+    const datosGuardar = {
+      userInfo: infoUsuario,
+      showForm: mostrarFormulario,
+      completedSteps: pasosCompletados,
+      stepNotes: notasPasos
       // No guardamos imágenes en localStorage
     }
     try {
-      localStorage.setItem('clinicaDelPC', JSON.stringify(dataToSave))
+      localStorage.setItem('clinicaDelPC', JSON.stringify(datosGuardar))
     } catch (error) {
       console.error('Error al guardar datos:', error)
     }
-  }, [userInfo, showForm, completedSteps, stepNotes])
+  }, [infoUsuario, mostrarFormulario, pasosCompletados, notasPasos])
 
-  const toggleStep = (stepId) => {
-    setCompletedSteps(prev => ({
+  const alternarPaso = (idPaso) => {
+    setPasosCompletados(prev => ({
       ...prev,
-      [stepId]: !prev[stepId]
+      [idPaso]: !prev[idPaso]
     }))
   }
 
-  const handleNoteChange = (stepId, note) => {
-    setStepNotes(prev => ({
+  const manejarCambioNota = (idPaso, nota) => {
+    setNotasPasos(prev => ({
       ...prev,
-      [stepId]: note
+      [idPaso]: nota
     }))
   }
 
-  const handleImageUpload = (stepId, e) => {
-    const files = e.target.files
-    if (files && files.length > 0) {
-      const imageArray = Array.from(files).map(file => ({
-        name: file.name,
-        originalName: file.name,
-        file: file,
-        url: URL.createObjectURL(file)
+  const manejarSubidaImagen = (idPaso, e) => {
+    const archivos = e.target.files
+    if (archivos && archivos.length > 0) {
+      const arregloImagenes = Array.from(archivos).map(archivo => ({
+        name: archivo.name,
+        originalName: archivo.name,
+        file: archivo,
+        url: URL.createObjectURL(archivo)
       }))
       
-      setStepImages(prev => ({
+      setImagenesPasos(prev => ({
         ...prev,
-        [stepId]: [...(prev[stepId] || []), ...imageArray]
+        [idPaso]: [...(prev[idPaso] || []), ...arregloImagenes]
       }))
       
-      setImageFiles(prev => ({
+      setArchivosImagen(prev => ({
         ...prev,
-        [stepId]: [...(prev[stepId] || []), ...files]
+        [idPaso]: [...(prev[idPaso] || []), ...archivos]
       }))
     }
   }
 
-  const removeImage = (stepId, index) => {
-    setStepImages(prev => ({
+  const eliminarImagen = (idPaso, indice) => {
+    setImagenesPasos(prev => ({
       ...prev,
-      [stepId]: prev[stepId].filter((_, i) => i !== index)
+      [idPaso]: prev[idPaso].filter((_, i) => i !== indice)
     }))
-    setImageFiles(prev => ({
+    setArchivosImagen(prev => ({
       ...prev,
-      [stepId]: prev[stepId].filter((_, i) => i !== index)
+      [idPaso]: prev[idPaso].filter((_, i) => i !== indice)
     }))
   }
 
-  const completedCount = Object.values(completedSteps).filter(Boolean).length
-  const progress = (completedCount / pasos.length) * 100
+  const cuentaCompletados = Object.values(pasosCompletados).filter(Boolean).length
+  const progreso = (cuentaCompletados / pasos.length) * 100
 
-  const saveToDatabase = async () => {
+  const guardarEnBaseDatos = async () => {
     try {
       // Usar la URL del servidor actual o localhost para desarrollo
-      const serverUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      const urlServidor = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
         ? 'http://localhost:3001'
         : `http://${window.location.hostname}:3001`
       
       // Crear FormData para enviar archivos
-      const formData = new FormData()
+      const datosFormulario = new FormData()
       
       // Agregar datos JSON
-      formData.append('userInfo', JSON.stringify(userInfo))
-      formData.append('completedSteps', JSON.stringify(completedSteps))
-      formData.append('stepNotes', JSON.stringify(stepNotes))
+      datosFormulario.append('userInfo', JSON.stringify(infoUsuario))
+      datosFormulario.append('completedSteps', JSON.stringify(pasosCompletados))
+      datosFormulario.append('stepNotes', JSON.stringify(notasPasos))
       
       // Preparar información de imágenes
-      const imagesInfo = {}
-      Object.keys(stepImages).forEach(stepId => {
-        imagesInfo[stepId] = stepImages[stepId].map(img => ({
+      const infoImagenes = {}
+      Object.keys(imagenesPasos).forEach(idPaso => {
+        infoImagenes[idPaso] = imagenesPasos[idPaso].map(img => ({
           name: img.name,
           originalName: img.originalName
         }))
       })
-      formData.append('imagesInfo', JSON.stringify(imagesInfo))
+      datosFormulario.append('imagesInfo', JSON.stringify(infoImagenes))
       
       // Agregar archivos de imagen
-      Object.keys(imageFiles).forEach(stepId => {
-        imageFiles[stepId].forEach(file => {
-          formData.append('images', file)
+      Object.keys(archivosImagen).forEach(idPaso => {
+        archivosImagen[idPaso].forEach(archivo => {
+          datosFormulario.append('images', archivo)
         })
       })
       
-      const response = await fetch(`${serverUrl}/api/save`, {
+      const respuesta = await fetch(`${urlServidor}/api/save`, {
         method: 'POST',
-        body: formData
+        body: datosFormulario
       })
 
-      const data = await response.json()
+      const datos = await respuesta.json()
       
-      if (data.success) {
+      if (datos.success) {
         Swal.fire({
           icon: 'success',
           title: '¡Guardado!',
@@ -159,7 +159,7 @@ function App() {
         Swal.fire({
           icon: 'error',
           title: 'Error',
-          text: 'Error al guardar: ' + data.error,
+          text: 'Error al guardar: ' + datos.error,
           confirmButtonColor: '#1e40af'
         })
       }
@@ -174,20 +174,20 @@ function App() {
     }
   }
 
-  const handleUserInfoSubmit = (e) => {
+  const manejarEnvioInfoUsuario = (e) => {
     e.preventDefault()
-    setShowForm(false)
+    setMostrarFormulario(false)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const handleUserInfoChange = (e) => {
-    setUserInfo(prev => ({
+  const manejarCambioInfoUsuario = (e) => {
+    setInfoUsuario(prev => ({
       ...prev,
       [e.target.name]: e.target.value
     }))
   }
 
-  const handleNewPC = () => {
+  const manejarNuevoPC = () => {
     Swal.fire({
       title: '¿Nuevo PC?',
       text: '¿Estás seguro de que quieres empezar con un nuevo PC? Se mantendrán tus datos personales.',
@@ -200,23 +200,23 @@ function App() {
     }).then((result) => {
       if (result.isConfirmed) {
         // Reiniciar todo excepto nombre y apellido del estudiante
-        setUserInfo(prev => ({
+        setInfoUsuario(prev => ({
           nombre: prev.nombre,
           apellido: prev.apellido,
           nombrePC: ''
         }))
-        setCompletedSteps({})
-        setStepNotes({})
-        setStepImages({})
-        setImageFiles({})
-        setShowForm(true)
+        setPasosCompletados({})
+        setNotasPasos({})
+        setImagenesPasos({})
+        setArchivosImagen({})
+        setMostrarFormulario(true)
         // Actualizar localStorage con los datos del estudiante
-        const currentData = JSON.parse(localStorage.getItem('clinicaDelPC') || '{}')
+        const datosActuales = JSON.parse(localStorage.getItem('clinicaDelPC') || '{}')
         localStorage.setItem('clinicaDelPC', JSON.stringify({
-          ...currentData,
+          ...datosActuales,
           userInfo: {
-            nombre: userInfo.nombre,
-            apellido: userInfo.apellido,
+            nombre: infoUsuario.nombre,
+            apellido: infoUsuario.apellido,
             nombrePC: ''
           },
           showForm: true,
@@ -234,9 +234,9 @@ function App() {
     })
   }
 
-  const handleExportWord = async () => {
+  const manejarExportarWord = async () => {
     try {
-      const serverUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      const urlServidor = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
         ? 'http://localhost:3001'
         : `http://${window.location.hostname}:3001`
 
@@ -250,46 +250,46 @@ function App() {
       })
 
       // Create FormData to send images
-      const formData = new FormData()
-      formData.append('userInfo', JSON.stringify(userInfo))
-      formData.append('completedSteps', JSON.stringify(completedSteps))
-      formData.append('stepNotes', JSON.stringify(stepNotes))
-      formData.append('imagesInfo', JSON.stringify(stepImages))
-      formData.append('steps', JSON.stringify(steps))
+      const datosFormulario = new FormData()
+      datosFormulario.append('userInfo', JSON.stringify(infoUsuario))
+      datosFormulario.append('completedSteps', JSON.stringify(pasosCompletados))
+      datosFormulario.append('stepNotes', JSON.stringify(notasPasos))
+      datosFormulario.append('imagesInfo', JSON.stringify(imagenesPasos))
+      datosFormulario.append('steps', JSON.stringify(pasos))
 
       // Add image files with step mapping
-      const imageMapping = {};
-      let fileIndex = 0;
+      const mapeoImagenes = {};
+      let indiceArchivo = 0;
       
-      Object.keys(imageFiles).forEach(stepId => {
-        imageMapping[stepId] = [];
-        imageFiles[stepId].forEach(file => {
-          formData.append('images', file);
-          imageMapping[stepId].push(fileIndex);
-          fileIndex++;
+      Object.keys(archivosImagen).forEach(idPaso => {
+        mapeoImagenes[idPaso] = [];
+        archivosImagen[idPaso].forEach(archivo => {
+          datosFormulario.append('images', archivo);
+          mapeoImagenes[idPaso].push(indiceArchivo);
+          indiceArchivo++;
         });
       });
       
-      formData.append('imageMapping', JSON.stringify(imageMapping));
+      datosFormulario.append('imageMapping', JSON.stringify(mapeoImagenes));
 
-      const response = await fetch(`${serverUrl}/api/export-word`, {
+      const respuesta = await fetch(`${urlServidor}/api/export-word`, {
         method: 'POST',
-        body: formData
+        body: datosFormulario
       })
 
-      if (!response.ok) {
+      if (!respuesta.ok) {
         throw new Error('Error al generar el documento Word')
       }
 
-      const blob = await response.blob()
+      const blob = await respuesta.blob()
       const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `reporte_${userInfo.nombre}_${userInfo.apellido}_${userInfo.nombrePC}.docx`
-      document.body.appendChild(a)
-      a.click()
+      const enlace = document.createElement('a')
+      enlace.href = url
+      enlace.download = `reporte_${infoUsuario.nombre}_${infoUsuario.apellido}_${infoUsuario.nombrePC}.docx`
+      document.body.appendChild(enlace)
+      enlace.click()
       window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
+      document.body.removeChild(enlace)
 
       Swal.fire({
         icon: 'success',
@@ -308,7 +308,7 @@ function App() {
     }
   }
 
-  if (showForm) {
+  if (mostrarFormulario) {
     return (
       <div className="app">
         <header className="header">
@@ -319,15 +319,15 @@ function App() {
         <main className="main-content">
           <div className="form-container">
             <h2>Información del Estudiante</h2>
-            <form onSubmit={handleUserInfoSubmit} className="user-form">
+            <form onSubmit={manejarEnvioInfoUsuario} className="user-form">
               <div className="form-group">
                 <label htmlFor="nombre">Nombre</label>
                 <input
                   type="text"
                   id="nombre"
                   name="nombre"
-                  value={userInfo.nombre}
-                  onChange={handleUserInfoChange}
+                  value={infoUsuario.nombre}
+                  onChange={manejarCambioInfoUsuario}
                   required
                   placeholder="Tu nombre"
                 />
@@ -339,8 +339,8 @@ function App() {
                   type="text"
                   id="apellido"
                   name="apellido"
-                  value={userInfo.apellido}
-                  onChange={handleUserInfoChange}
+                  value={infoUsuario.apellido}
+                  onChange={manejarCambioInfoUsuario}
                   required
                   placeholder="Tu apellido"
                 />
@@ -352,8 +352,8 @@ function App() {
                   type="text"
                   id="nombrePC"
                   name="nombrePC"
-                  value={userInfo.nombrePC}
-                  onChange={handleUserInfoChange}
+                  value={infoUsuario.nombrePC}
+                  onChange={manejarCambioInfoUsuario}
                   required
                   placeholder="Nombre del computador"
                 />
@@ -380,15 +380,15 @@ function App() {
         </div>
         
         <div className="user-info-display">
-          <p><strong>Estudiante:</strong> {userInfo.nombre} {userInfo.apellido}</p>
-          <p><strong>PC:</strong> {userInfo.nombrePC}</p>
+          <p><strong>Estudiante:</strong> {infoUsuario.nombre} {infoUsuario.apellido}</p>
+          <p><strong>PC:</strong> {infoUsuario.nombrePC}</p>
         </div>
         
         <div className="progress-container">
           <div className="progress-bar">
-            <div className="progress-fill" style={{ width: `${progress}%` }}></div>
+            <div className="progress-fill" style={{ width: `${progreso}%` }}></div>
           </div>
-          <p className="progress-text">{completedCount} de {pasos.length} pasos completados ({Math.round(progress)}%)</p>
+          <p className="progress-text">{cuentaCompletados} de {pasos.length} pasos completados ({Math.round(progreso)}%)</p>
         </div>
       </header>
 
@@ -397,16 +397,16 @@ function App() {
           {pasos.map((step) => (
             <div 
               key={step.id} 
-              className={`step-card ${completedSteps[step.id] ? 'completed' : ''}`}
+              className={`step-card ${pasosCompletados[step.id] ? 'completed' : ''}`}
             >
               <div className="step-header">
                 <div className="step-number">{step.id}</div>
                 <h2>{step.titulo}</h2>
                 <button 
-                  className={`check-btn ${completedSteps[step.id] ? 'checked' : ''}`}
-                  onClick={() => toggleStep(step.id)}
+                  className={`check-btn ${pasosCompletados[step.id] ? 'checked' : ''}`}
+                  onClick={() => alternarPaso(step.id)}
                 >
-                  {completedSteps[step.id] ? '✓' : '○'}
+                  {pasosCompletados[step.id] ? '✓' : '○'}
                 </button>
               </div>
               
@@ -425,8 +425,8 @@ function App() {
                   <label htmlFor={`note-${step.id}`}>Notas:</label>
                   <textarea
                     id={`note-${step.id}`}
-                    value={stepNotes[step.id] || ''}
-                    onChange={(e) => handleNoteChange(step.id, e.target.value)}
+                    value={notasPasos[step.id] || ''}
+                    onChange={(e) => manejarCambioNota(step.id, e.target.value)}
                     placeholder="Agrega tus notas aquí..."
                     rows="3"
                   />
@@ -441,7 +441,7 @@ function App() {
                       accept="image/*"
                       capture="environment"
                       multiple
-                      onChange={(e) => handleImageUpload(step.id, e)}
+                      onChange={(e) => manejarSubidaImagen(step.id, e)}
                       style={{ display: 'none' }}
                     />
                     <label htmlFor={`image-${step.id}`} className="upload-btn">
@@ -449,14 +449,14 @@ function App() {
                     </label>
                   </div>
                   
-                  {stepImages[step.id] && stepImages[step.id].length > 0 && (
+                  {imagenesPasos[step.id] && imagenesPasos[step.id].length > 0 && (
                     <div className="images-grid">
-                      {stepImages[step.id].map((image, index) => (
-                        <div key={index} className="image-item">
-                          <img src={image.url} alt={image.name} />
+                      {imagenesPasos[step.id].map((imagen, indice) => (
+                        <div key={indice} className="image-item">
+                          <img src={imagen.url} alt={imagen.name} />
                           <button
                             className="remove-image-btn"
-                            onClick={() => removeImage(step.id, index)}
+                            onClick={() => eliminarImagen(step.id, indice)}
                           >
                             ✕
                           </button>
@@ -474,13 +474,13 @@ function App() {
       <footer className="footer">
         <p>Lista de verificación para evaluación práctica</p>
         <div className="footer-buttons">
-          <button onClick={handleExportWord} className="export-word-btn">
+          <button onClick={manejarExportarWord} className="export-word-btn">
             📄 Exportar Word
           </button>
-          <button onClick={saveToDatabase} className="save-db-btn">
+          <button onClick={guardarEnBaseDatos} className="save-db-btn">
             💾 Guardar en Base de Datos
           </button>
-          <button onClick={handleNewPC} className="new-pc-btn">
+          <button onClick={manejarNuevoPC} className="new-pc-btn">
             🔄 Nuevo PC
           </button>
         </div>
