@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import XLSX from 'xlsx';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ImageRun } from 'docx';
 
@@ -727,8 +728,19 @@ aplicacion.get('/api/health', (req, res) => {
 // Inicializar base de datos y arrancar servidor
 inicializarBaseDeDatos().then(() => {
   aplicacion.listen(puerto, '0.0.0.0', () => {
-    console.log(`Servidor ejecutándose en http://0.0.0.0:${puerto}`);
+    const interfaces = os.networkInterfaces();
+    let ipRed = '0.0.0.0';
+    for (const nombre in interfaces) {
+      for (const detalle of interfaces[nombre]) {
+        if (detalle.family === 'IPv4' && !detalle.internal) {
+          ipRed = detalle.address;
+          break;
+        }
+      }
+      if (ipRed !== '0.0.0.0') break;
+    }
     console.log(`Servidor ejecutándose en http://localhost:${puerto}`);
+    console.log(`Servidor ejecutándose en http://${ipRed}:${puerto}`);
   });
 }).catch(error => {
   console.error('Error al iniciar el servidor:', error);
