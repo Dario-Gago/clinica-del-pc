@@ -76,21 +76,36 @@ function App() {
   const manejarSubidaImagen = (idPaso, e) => {
     const archivos = e.target.files
     if (archivos && archivos.length > 0) {
-      const arregloImagenes = Array.from(archivos).map(archivo => ({
-        name: archivo.name,
-        originalName: archivo.name,
-        file: archivo,
-        url: URL.createObjectURL(archivo)
-      }))
+      const timestamp = Date.now()
+      
+      const nuevasImagenes = Array.from(archivos).map((archivo, indice) => {
+        // Generar un nombre único para evitar colisiones entre pasos y archivos
+        const nombreSeguro = archivo.name.replace(/[^a-zA-Z0-9.]/g, '_')
+        const nombreUnico = `${timestamp}_${idPaso}_${indice}_${nombreSeguro}`
+        
+        return {
+          nombre: nombreUnico,
+          nombreOriginal: archivo.name,
+          url: URL.createObjectURL(archivo),
+          archivo: archivo
+        }
+      })
       
       setImagenesPasos(prev => ({
         ...prev,
-        [idPaso]: [...(prev[idPaso] || []), ...arregloImagenes]
+        [idPaso]: [...(prev[idPaso] || []), ...nuevasImagenes.map(img => ({
+          nombre: img.nombre,
+          nombreOriginal: img.nombreOriginal,
+          url: img.url
+        }))]
       }))
       
       setArchivosImagen(prev => ({
         ...prev,
-        [idPaso]: [...(prev[idPaso] || []), ...archivos]
+        [idPaso]: [...(prev[idPaso] || []), ...nuevasImagenes.map(img => ({
+          archivo: img.archivo,
+          nombre: img.nombre
+        }))]
       }))
     }
   }
@@ -124,20 +139,20 @@ function App() {
       datosFormulario.append('completedSteps', JSON.stringify(pasosCompletados))
       datosFormulario.append('stepNotes', JSON.stringify(notasPasos))
       
-      // Preparar información de imágenes
+      // Preparar información de imágenes (con nombres únicos para evitar colisiones)
       const infoImagenes = {}
       Object.keys(imagenesPasos).forEach(idPaso => {
         infoImagenes[idPaso] = imagenesPasos[idPaso].map(img => ({
-          name: img.name,
-          originalName: img.originalName
+          name: img.nombreOriginal,
+          originalName: img.nombre
         }))
       })
       datosFormulario.append('imagesInfo', JSON.stringify(infoImagenes))
       
-      // Agregar archivos de imagen
+      // Agregar archivos de imagen con nombres únicos
       Object.keys(archivosImagen).forEach(idPaso => {
-        archivosImagen[idPaso].forEach(archivo => {
-          datosFormulario.append('images', archivo)
+        archivosImagen[idPaso].forEach(item => {
+          datosFormulario.append('images', item.archivo, item.nombre)
         })
       })
       
@@ -254,17 +269,25 @@ function App() {
       datosFormulario.append('userInfo', JSON.stringify(infoUsuario))
       datosFormulario.append('completedSteps', JSON.stringify(pasosCompletados))
       datosFormulario.append('stepNotes', JSON.stringify(notasPasos))
-      datosFormulario.append('imagesInfo', JSON.stringify(imagenesPasos))
+      // Preparar información de imágenes para el documento Word
+      const infoImagenes = {}
+      Object.keys(imagenesPasos).forEach(idPaso => {
+        infoImagenes[idPaso] = imagenesPasos[idPaso].map(img => ({
+          name: img.nombreOriginal,
+          originalName: img.nombre
+        }))
+      })
+      datosFormulario.append('imagesInfo', JSON.stringify(infoImagenes))
       datosFormulario.append('steps', JSON.stringify(pasos))
 
-      // Add image files with step mapping
+      // Agregar archivos de imagen con mapeo por paso
       const mapeoImagenes = {};
       let indiceArchivo = 0;
       
       Object.keys(archivosImagen).forEach(idPaso => {
         mapeoImagenes[idPaso] = [];
-        archivosImagen[idPaso].forEach(archivo => {
-          datosFormulario.append('images', archivo);
+        archivosImagen[idPaso].forEach(item => {
+          datosFormulario.append('images', item.archivo, item.nombre);
           mapeoImagenes[idPaso].push(indiceArchivo);
           indiceArchivo++;
         });
@@ -452,8 +475,8 @@ function App() {
                   {imagenesPasos[step.id] && imagenesPasos[step.id].length > 0 && (
                     <div className="images-grid">
                       {imagenesPasos[step.id].map((imagen, indice) => (
-                        <div key={indice} className="image-item">
-                          <img src={imagen.url} alt={imagen.name} />
+                        <div key={imagen.nombre} className="image-item">
+                          <img src={imagen.url} alt={imagen.nombreOriginal} />
                           <button
                             className="remove-image-btn"
                             onClick={() => eliminarImagen(step.id, indice)}
