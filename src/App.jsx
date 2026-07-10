@@ -177,6 +177,7 @@ function App() {
   const handleUserInfoSubmit = (e) => {
     e.preventDefault()
     setShowForm(false)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const handleUserInfoChange = (e) => {
