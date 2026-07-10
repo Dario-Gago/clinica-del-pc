@@ -195,12 +195,11 @@ aplicacion.post('/api/save', subida.array('images', 50), async (req, res) => {
           const archivoSubido = archivosSubidos.find(f => f.originalname === infoImagen.originalName);
           
           if (archivoSubido) {
-            // Cambiar nombre del archivo: nombre_estudiante_apellido_nombrepc_paso_timestamp.ext
+            // Cambiar nombre del archivo: nombre_estudiante_apellido_nombrepc_paso.ext
             const nombreEstudiante = `${infoUsuarioParseada.nombre}_${infoUsuarioParseada.apellido}`;
             const nombrePC = infoUsuarioParseada.nombrePC.replace(/[^a-zA-Z0-9]/g, '_');
-            const marcaTiempo = Date.now();
             const extension = path.extname(archivoSubido.originalname);
-            const nuevoNombreArchivo = `${nombreEstudiante}_${nombrePC}_paso${idPaso}_${marcaTiempo}${extension}`;
+            const nuevoNombreArchivo = `${nombreEstudiante}_${nombrePC}_paso${idPaso}${extension}`;
             
             // Renombrar archivo
             const rutaAntigua = archivoSubido.path;
